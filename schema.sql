@@ -2,6 +2,12 @@ CREATE TABLE IF NOT EXISTS guilds (
     guild_id BIGINT PRIMARY KEY
 );
 
+CREATE TABLE IF NOT EXISTS guild_config (
+    guild_id BIGINT REFERENCES guilds ON DELETE CASCADE,
+    prefix VARCHAR DEFAULT 'mao ',
+    PRIMARY KEY (guild_id, prefix)
+);
+
 CREATE TABLE IF NOT EXISTS users (
     guild_id BIGINT REFERENCES guilds ON DELETE CASCADE,
     user_id BIGINT,
@@ -9,5 +15,6 @@ CREATE TABLE IF NOT EXISTS users (
     vault BIGINT DEFAULT 500,
     pet_name VARCHAR DEFAULT 'happy shiba',
     xp BIGINT DEFAULT 0,
-    level BIGINT DEFAULT 1
+    level BIGINT DEFAULT 1,
+    PRIMARY KEY (guild_id, user_id)
 )
