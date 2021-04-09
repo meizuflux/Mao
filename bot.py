@@ -34,28 +34,33 @@ class Mao(commands.Bot):
 
         #   asyncio things
         self.loop = asyncio.get_event_loop()
-        self.db = self.loop.run_until_complete(asyncpg.create_pool(dsn=self.settings['core']['postgres_dsn']))
+        self.pool_pg: asyncpg.Pool = self.loop.run_until_complete(asyncpg.create_pool(dsn=self.settings['core']['postgres_dsn']))
         self.loop.create_task(self.__prep())
 
     async def __prep(self):
         self.session = aiohttp.ClientSession(loop=self.loop)
         with open("schema.sql") as f:
-            await self.db.execute(f.read())
+            await self.pool_pg.execute(f.read())
+
+        async with self.pool_pg.acquire() as conn:
+            async with conn.transaction():
+                users = await conn.fetch("SELECT user_id FROM users")
+                self.registered_users = {user["user_id"] for user in users}
 
     async def on_ready(self):
         logging.info("Connected to Discord.")
 
-    def run(self, token: str):
+    def run(self, *args, **kwargs):
         for file in os.listdir("exts"):
             if not file.startswith("_"):
                 self.load_extension(f'exts.{file[:-3]}')
         self.load_extension("jishaku")
         logger.info("Loaded extensions.")
-        super().run(token=token)
+        super().run(*args, **kwargs)
 
     async def close(self):
         await self.session.close()
-        await self.db.close()
+        await self.pool_pg.close()
         await super().close()
 
     def embed(self, ctx, **kwargs):
