@@ -3,10 +3,9 @@ import traceback
 
 import discord
 import humanize
-import prettify_exceptions
 from discord.ext import commands
 
-from utils.eco import NotRegistered
+from utils.errors import NotRegistered
 
 
 class CommandErrorHandler(commands.Cog):
