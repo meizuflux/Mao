@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from bot import Mao
+from utils import Mao
 
 
 class Events(commands.Cog):

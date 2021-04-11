@@ -4,7 +4,7 @@ import random
 import discord
 from discord.ext import commands, tasks
 
-from bot import Mao
+from utils import Mao
 
 log = logging.getLogger("Economy")
 
@@ -23,6 +23,11 @@ class Economy(commands.Cog):
             return
         if message.author.id not in self.bot.registered_users:
             return
+        if message.guild.id not in self.bot.leveling_guilds:
+            return
+        if random.randint(1, 3) == 2:
+            return
+
         xp = random.randint(66, 114)
         if data := self._data_batch:
             for msg in data:
@@ -57,7 +62,6 @@ class Economy(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-
         await self.register_message(message)
 
     @tasks.loop(seconds=20)
@@ -68,6 +72,14 @@ class Economy(commands.Cog):
     async def data(self, ctx):
         await ctx.send(self._data_batch)
 
+    @commands.command(aliases=('toggle-leveling', 'toggleleveling'))
+    @commands.has_permissions(manage_guild=True)
+    @commands.guild_only()
+    async def toggle_leveling(self, ctx):
+        enabled = await self.bot.pool_pg.fetchval("SELECT leveling FROM guild_config WHERE guild_id = $1", ctx.author)
+        leveling, msg = not enabled, "Enabled" if not enabled else "Disabled"
+        await self.bot.pool_pg.execute("UPDATE guild_config SET leveling = $2 WHERE guild_id = $1", ctx.guild.id, leveling)
+        await ctx.send("")
 
 def setup(bot):
     bot.add_cog(Economy(bot))

@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS guilds (
 
 CREATE TABLE IF NOT EXISTS guild_config (
     guild_id BIGINT REFERENCES guilds ON DELETE CASCADE,
-    prefix VARCHAR DEFAULT 'mao ',
-    PRIMARY KEY (guild_id, prefix)
+    leveling BOOLEAN DEFAULT True,
+    PRIMARY KEY (guild_id)
 );
 
 CREATE TABLE IF NOT EXISTS users (

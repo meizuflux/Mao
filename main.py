@@ -1,5 +1,5 @@
 import os
-from bot import Mao
+from utils import Mao
 import discord
 
 intents = discord.Intents.default()

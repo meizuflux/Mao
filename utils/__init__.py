@@ -38,14 +38,21 @@ class Mao(commands.Bot):
         self.loop.create_task(self.__prep())
 
     async def __prep(self):
+        await self.wait_until_ready()
         self.session = aiohttp.ClientSession(loop=self.loop)
-        with open("schema.sql") as f:
-            await self.pool_pg.execute(f.read())
 
         async with self.pool_pg.acquire() as conn:
             async with conn.transaction():
+                with open("schema.sql") as f:
+                    await conn.execute(f.read())
+
                 users = await conn.fetch("SELECT user_id FROM users")
                 self.registered_users = {user["user_id"] for user in users}
+
+                await conn.executemany("INSERT INTO guild_config (guild_id) VALUES ($1)", tuple((g.id,) for g in self.guilds))
+
+                leveling = await conn.fetch("SELECT guild_id FROM guild_config WHERE leveling = True")
+                self.leveling_guilds = {guild['guild_id'] for guild in leveling}
 
     async def on_ready(self):
         logging.info("Connected to Discord.")
