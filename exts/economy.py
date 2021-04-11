@@ -68,7 +68,7 @@ class Economy(commands.Cog):
     async def bulk_insert_task(self):
         await self.bulk_insert()
 
-    @commands.command(aliases=('toggle-leveling', 'toggleleveling'))
+    @commands.command(name="toggle-leveling", aliases=('toggleleveling',))
     @commands.has_permissions(manage_guild=True)
     @commands.guild_only()
     async def toggle_leveling(self, ctx):
@@ -85,6 +85,7 @@ class Economy(commands.Cog):
         await ctx.send(f"{msg} leveling on {ctx.guild.name}.")
         method = getattr(self.bot.non_leveling_guilds, "remove" if leveling else "add")
         method(ctx.guild.id)
+
 
 def setup(bot):
     bot.add_cog(Economy(bot))
