@@ -4,7 +4,7 @@ import random
 import discord
 from discord.ext import commands, tasks
 
-from utils import Mao
+from utils import CustomContext, Mao, get_user_stats
 
 log = logging.getLogger("Economy")
 
@@ -45,7 +45,7 @@ class Economy(commands.Cog):
     async def bulk_insert(self):
         if not self._data_batch:
             return
-        async with self.bot.pool_pg.acquire() as conn:
+        async with self.bot.pool.acquire() as conn:
             async with conn.transaction():
                 query = (
                     """
@@ -71,9 +71,9 @@ class Economy(commands.Cog):
     @commands.command(name="toggle-leveling", aliases=('toggleleveling',))
     @commands.has_permissions(manage_guild=True)
     @commands.guild_only()
-    async def toggle_leveling(self, ctx):
+    async def toggle_leveling(self, ctx: CustomContext):
         """Enables/disables leveling on this server."""
-        enabled = await self.bot.pool_pg.fetchval("SELECT leveling FROM guild_config WHERE guild_id = $1", ctx.guild.id)
+        enabled = await self.bot.pool.fetchval("SELECT leveling FROM guild_config WHERE guild_id = $1", ctx.guild.id)
         leveling, msg = not enabled, "Enabled" if not enabled else "Disabled"
         query = (
             """
@@ -81,10 +81,26 @@ class Economy(commands.Cog):
             WHERE guild_id = $1
             """
         )
-        await self.bot.pool_pg.execute(query, ctx.guild.id, leveling)
+        await self.bot.pool.execute(query, ctx.guild.id, leveling)
         await ctx.send(f"{msg} leveling on {ctx.guild.name}.")
         method = getattr(self.bot.non_leveling_guilds, "remove" if leveling else "add")
         method(ctx.guild.id)
+
+    @commands.command()
+    async def balance(self, ctx: CustomContext, user: discord.User=None):
+        user = user or ctx.author
+        items = ('cash', 'vault', 'pet_name', 'xp', 'level')
+        cash, vault, pet, xp, level = await get_user_stats(ctx, user_id=user.id, items=items)
+        message = (
+            f"Cash: {cash}",
+            f"Vault: {vault}",
+            f"Pet: {pet.capitalize()}",
+            f"XP: {xp}",
+            f"Level: {level}"
+        )
+        embed = self.bot.embed(ctx, author=False, title=f"{user.name}'s balance", description="\n".join(message))
+        embed.set_thumbnail(url=user.avatar_url)
+        await ctx.send(embed=embed)
 
 
 def setup(bot):

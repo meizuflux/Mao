@@ -3,12 +3,12 @@ import logging
 import os
 
 import aiohttp
-import asyncpg
 import discord
 import toml
 from discord.ext import commands
+
+from utils.db import Database, create_pool
 from utils.errors import NotRegistered
-from utils.db import create_pool
 
 try:
     import uvloop
@@ -31,21 +31,21 @@ class Mao(commands.Bot):
 
         #  core variables
         with open("config.toml") as f:
-            self.settings = toml.loads(f.read())
-        self.embed_color = "TBD"
+            self.settings: dict = toml.loads(f.read())
+        self.embed_color = 0xffc38f
 
         #   asyncio things
         self.loop = asyncio.get_event_loop()
-        self.pool_pg: asyncpg.Pool = self.loop.run_until_complete(
+        self.pool: Database = self.loop.run_until_complete(
             create_pool(dsn=self.settings['core']['postgres_dsn'], loop=self.loop)
         )
         self.loop.create_task(self.__prep())
 
     async def __prep(self):
         await self.wait_until_ready()
-        self.session = aiohttp.ClientSession()
+        self.session: aiohttp.ClientSession = aiohttp.ClientSession()
 
-        async with self.pool_pg.acquire() as conn:
+        async with self.pool.acquire() as conn:
             async with conn.transaction():
                 with open("schema.sql") as f:
                     await conn.execute(f.read())
@@ -73,21 +73,27 @@ class Mao(commands.Bot):
 
     async def close(self):
         await self.session.close()
-        await self.pool_pg.close()
+        await self.pool.close()
         await super().close()
 
-    def embed(self, ctx, **kwargs):
+    def embed(self, ctx, author=True, **kwargs):
         color = kwargs.pop("color", self.embed_color)
         embed = discord.Embed(**kwargs, color=color)
         embed.timestamp = ctx.message.created_at
-        embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
+        if author:
+            embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
         return embed
 
 
-async def get_user_stats(ctx, user_id: int, author=False, items: iter = ('cash', 'vault')):
+class CustomContext(commands.Context):
+    pass
+
+
+async def get_user_stats(ctx: CustomContext, user_id: int = None, items: iter = ('cash', 'vault')):
+    user = user_id or ctx.author.id
     query = "SELECT " + ", ".join(items) + " FROM users WHERE guild_id = $1 AND user_id = $2"
-    stats = await ctx.bot.pool_pg.fetchrow(query, ctx.guild.id, user_id)
+    stats = await ctx.bot.pool.fetchrow(query, ctx.guild.id, user)
     if not stats:
-        message = "This user is not registered." if author else "You are not registered."
+        message = "This user is not registered." if user_id else "You are not registered."
         raise NotRegistered(message)
-    return stats
+    return tuple(stats.get(item) for item in items)
