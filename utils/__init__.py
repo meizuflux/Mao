@@ -41,9 +41,16 @@ class Mao(commands.Bot):
         )
         self.loop.create_task(self.__prep())
 
+        #  cache
+        self.non_leveling_guilds = []
+
     async def __prep(self):
         await self.wait_until_ready()
         self.session: aiohttp.ClientSession = aiohttp.ClientSession()
+        self.error_webhook = discord.Webhook.from_url(
+            self.settings["core"]["error_webhook"],
+            adapter=discord.AsyncWebhookAdapter(self.session)
+        )
 
         async with self.pool.acquire() as conn:
             async with conn.transaction():
@@ -52,6 +59,9 @@ class Mao(commands.Bot):
 
                 users = await conn.fetch("SELECT user_id FROM users")
                 self.registered_users = {user["user_id"] for user in users}
+
+                await conn.executemany("INSERT INTO guilds (guild_id) VALUES ($1) ON CONFLICT DO NOTHING",
+                                       tuple((g.id,) for g in self.guilds))
 
                 await conn.executemany("INSERT INTO guild_config (guild_id) VALUES ($1) ON CONFLICT DO NOTHING",
                                        tuple((g.id,) for g in self.guilds))
@@ -86,7 +96,13 @@ class Mao(commands.Bot):
 
 
 class CustomContext(commands.Context):
-    pass
+    async def mystbin(self, data):
+        data = bytes(data, 'utf-8')
+        async with aiohttp.ClientSession() as cs:
+            async with cs.post('https://mystb.in/documents', data=data) as r:
+                res = await r.json()
+                key = res["key"]
+                return f"https://mystb.in/{key}"
 
 
 async def get_user_stats(ctx: CustomContext, user_id: int = None, items: iter = ('cash', 'vault')):

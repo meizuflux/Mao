@@ -12,6 +12,7 @@ log = logging.getLogger("Economy")
 class Economy(commands.Cog):
     def __init__(self, bot):
         self.bot: Mao = bot
+        self.help_name = f"\N{MONEY WITH WINGS} {self.__class__.__name__}"
         self._data_batch = []
         self.bulk_insert_task.start()
 
