@@ -7,6 +7,8 @@ import asyncpg
 import discord
 import toml
 from discord.ext import commands
+from utils.errors import NotRegistered
+from utils.db import create_pool
 
 try:
     import uvloop
@@ -34,7 +36,9 @@ class Mao(commands.Bot):
 
         #   asyncio things
         self.loop = asyncio.get_event_loop()
-        self.pool_pg: asyncpg.Pool = self.loop.run_until_complete(asyncpg.create_pool(dsn=self.settings['core']['postgres_dsn']))
+        self.pool_pg: asyncpg.Pool = self.loop.run_until_complete(
+            create_pool(dsn=self.settings['core']['postgres_dsn'], loop=self.loop)
+        )
         self.loop.create_task(self.__prep())
 
     async def __prep(self):
@@ -49,7 +53,8 @@ class Mao(commands.Bot):
                 users = await conn.fetch("SELECT user_id FROM users")
                 self.registered_users = {user["user_id"] for user in users}
 
-                await conn.executemany("INSERT INTO guild_config (guild_id) VALUES ($1) ON CONFLICT DO NOTHING", tuple((g.id,) for g in self.guilds))
+                await conn.executemany("INSERT INTO guild_config (guild_id) VALUES ($1) ON CONFLICT DO NOTHING",
+                                       tuple((g.id,) for g in self.guilds))
 
                 leveling = await conn.fetch("SELECT guild_id FROM guild_config WHERE leveling = False")
                 self.non_leveling_guilds = {guild['guild_id'] for guild in leveling}
@@ -77,3 +82,12 @@ class Mao(commands.Bot):
         embed.timestamp = ctx.message.created_at
         embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
         return embed
+
+
+async def get_user_stats(ctx, user_id: int, author=False, items: iter = ('cash', 'vault')):
+    query = "SELECT " + ", ".join(items) + " FROM users WHERE guild_id = $1 AND user_id = $2"
+    stats = await ctx.bot.pool_pg.fetchrow(query, ctx.guild.id, user_id)
+    if not stats:
+        message = "This user is not registered." if author else "You are not registered."
+        raise NotRegistered(message)
+    return stats

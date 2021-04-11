@@ -57,8 +57,8 @@ class Economy(commands.Cog):
                     query,
                     tuple((msg['g'], msg['u'], msg['xp']) for msg in self._data_batch)
                 )
+        log.info(f"Inserted XP. Unique users/guilds: {len(self._data_batch)}")
         self._data_batch.clear()
-        log.info("Inserted XP")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
