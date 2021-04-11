@@ -95,11 +95,6 @@ class CommandErrorHandler(commands.Cog):
             return await ctx.send(embed=self.bot.embed(ctx, description=f"{command} timed out."))
 
         formatted = traceback.format_exception(type(error), error, error.__traceback__)
-        pretty_traceback = "".join(
-            prettify_exceptions.DefaultFormatter().format_exception(
-                type(error), error, error.__traceback__
-            )
-        )
 
         desc = (
             f"Command: {ctx.invoked_with}\n"
@@ -109,7 +104,7 @@ class CommandErrorHandler(commands.Cog):
             f"User: {ctx.author.name} ({ctx.author.id})\n"
             f"Jump URL: {ctx.message.jump_url}"
         )
-        embed = self.bot.embed(ctx, title='AN ERROR OCCURED', url=await ctx.mystbin(pretty_traceback) + '.py', description=desc)
+        embed = self.bot.embed(ctx, title='AN ERROR OCCURED', description=desc)
         await self.bot.error_webhook.send(''.join(formatted), embed=embed)
 
         await ctx.send(
