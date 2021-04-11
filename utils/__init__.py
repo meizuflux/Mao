@@ -49,10 +49,11 @@ class Mao(commands.Bot):
                 users = await conn.fetch("SELECT user_id FROM users")
                 self.registered_users = {user["user_id"] for user in users}
 
-                await conn.executemany("INSERT INTO guild_config (guild_id) VALUES ($1)", tuple((g.id,) for g in self.guilds))
+                await conn.executemany("INSERT INTO guild_config (guild_id) VALUES ($1) ON CONFLICT DO NOTHING", tuple((g.id,) for g in self.guilds))
 
-                leveling = await conn.fetch("SELECT guild_id FROM guild_config WHERE leveling = True")
-                self.leveling_guilds = {guild['guild_id'] for guild in leveling}
+                leveling = await conn.fetch("SELECT guild_id FROM guild_config WHERE leveling = False")
+                self.non_leveling_guilds = {guild['guild_id'] for guild in leveling}
+                logging.info("Finished prep")
 
     async def on_ready(self):
         logging.info("Connected to Discord.")

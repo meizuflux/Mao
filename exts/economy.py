@@ -23,7 +23,7 @@ class Economy(commands.Cog):
             return
         if message.author.id not in self.bot.registered_users:
             return
-        if message.guild.id not in self.bot.leveling_guilds:
+        if message.guild.id in self.bot.non_leveling_guilds:
             return
         if random.randint(1, 3) == 2:
             return
@@ -68,18 +68,23 @@ class Economy(commands.Cog):
     async def bulk_insert_task(self):
         await self.bulk_insert()
 
-    @commands.command()
-    async def data(self, ctx):
-        await ctx.send(self._data_batch)
-
     @commands.command(aliases=('toggle-leveling', 'toggleleveling'))
     @commands.has_permissions(manage_guild=True)
     @commands.guild_only()
     async def toggle_leveling(self, ctx):
-        enabled = await self.bot.pool_pg.fetchval("SELECT leveling FROM guild_config WHERE guild_id = $1", ctx.author)
+        """Enables/disables leveling on this server."""
+        enabled = await self.bot.pool_pg.fetchval("SELECT leveling FROM guild_config WHERE guild_id = $1", ctx.guild.id)
         leveling, msg = not enabled, "Enabled" if not enabled else "Disabled"
-        await self.bot.pool_pg.execute("UPDATE guild_config SET leveling = $2 WHERE guild_id = $1", ctx.guild.id, leveling)
-        await ctx.send("")
+        query = (
+            """
+            UPDATE guild_config SET leveling = $2
+            WHERE guild_id = $1
+            """
+        )
+        await self.bot.pool_pg.execute(query, ctx.guild.id, leveling)
+        await ctx.send(f"{msg} leveling on {ctx.guild.name}.")
+        method = getattr(self.bot.non_leveling_guilds, "remove" if leveling else "add")
+        method(ctx.guild.id)
 
 def setup(bot):
     bot.add_cog(Economy(bot))
