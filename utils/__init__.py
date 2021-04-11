@@ -106,6 +106,16 @@ class CustomContext(commands.Context):
                 key = res["key"]
                 return f"https://mystb.in/{key}"
 
+    def escape(self, text: str):
+        mark = [
+            '`',
+            '_',
+            '*'
+        ]
+        for item in mark:
+            text = text.replace(item, f'\u200b{item}')
+        return
+
 
 async def get_user_stats(ctx: CustomContext, user_id: int = None, items: iter = ('cash', 'vault')):
     user = user_id or ctx.author.id

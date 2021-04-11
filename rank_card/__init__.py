@@ -8,13 +8,13 @@ from PIL import Image, ImageDraw, ImageFont
 
 class Generator:
     def __init__(self):
-        self.default_bg = os.path.join(os.path.dirname(__file__), 'assets', 'card.png')
-        self.font1 = os.path.join(os.path.dirname(__file__), 'assets', 'font.ttf')
-        self.font2 = os.path.join(os.path.dirname(__file__), 'assets', 'font2.ttf')
+        self.default_bg = os.path.join('assets', 'card.jpg')
+        self.font1 = os.path.join('assets', 'font.ttf')
 
-    def generate_profile(self, bg_image: str = None, profile_image: str = None, level: int = 1, current_xp: int = 0,
+    def generate_profile(self, profile_image: str = None, level: int = 1, current_xp: int = 0,
                          user_xp: int = 20, next_xp: int = 100, user_position: int = 1,
                          user_name: str = 'ppotatoo#9688'):
+
         card = Image.open(self.default_bg).convert("RGBA")
 
         width, height = card.size
@@ -53,38 +53,35 @@ class Generator:
         # ======== Fonts to use =============
         font_normal = ImageFont.truetype(self.font1, 36)
         font_small = ImageFont.truetype(self.font1, 20)
-        font_signa = ImageFont.truetype(self.font2, 25)
 
         # ======== Colors ========================
-        WHITE = (189, 195, 199)
-        DARK = (252, 179, 63)
-        YELLOW = (255, 234, 167)
+        white = (189, 195, 199)
+        dark = (252, 179, 63)
+        yellow = (255, 234, 167)
 
         def get_str(xp):
             if xp < 1000:
                 return str(xp)
-            if xp >= 1000 and xp < 1000000:
+            if 1000 <= xp < 1000000:
                 return str(round(xp / 1000, 1)) + "k"
             if xp > 1000000:
                 return str(round(xp / 1000000, 1)) + "M"
 
         draw = ImageDraw.Draw(card)
-        draw.text((245, 22), user_name, DARK, font=font_normal)
-        draw.text((245, 98), f"Rank #{user_position}", DARK, font=font_small)
-        draw.text((245, 123), f"Level {level}", DARK, font=font_small)
+        draw.text((245, 22), user_name, white, font=font_normal)
+        draw.text((245, 98), f"Rank #{user_position}", white, font=font_small)
+        draw.text((245, 123), f"Level {level}", white, font=font_small)
         draw.text(
             (245, 150),
             f"Exp {get_str(user_xp)}/{get_str(next_xp)}",
-            DARK,
+            white,
             font=font_small,
         )
 
-        # Adding another blank layer for the progress bar
-        # Because drawing on card dont make their background transparent
         blank = Image.new("RGBA", card.size, (255, 255, 255, 0))
         blank_draw = ImageDraw.Draw(blank)
         blank_draw.rectangle(
-            (245, 185, 750, 205), fill=(255, 255, 255, 0), outline=DARK
+            (245, 185, 750, 205), fill=(255, 255, 255, 0), outline=white
         )
 
         xpneed = next_xp - current_xp
@@ -93,8 +90,8 @@ class Generator:
         current_percentage = (xphave / xpneed) * 100
         length_of_bar = (current_percentage * 4.9) + 248
 
-        blank_draw.rectangle((248, 188, length_of_bar, 202), fill=DARK)
-        blank_draw.ellipse((20, 20, 218, 218), fill=(255, 255, 255, 0), outline=DARK)
+        blank_draw.rectangle((248, 188, length_of_bar, 202), fill=white)
+        blank_draw.ellipse((20, 20, 218, 218), fill=(255, 255, 255, 0), outline=white)
 
         profile_pic_holder.paste(profile, (29, 29, 209, 209))
 

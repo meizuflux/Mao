@@ -5,6 +5,7 @@ import discord
 import humanize
 from discord.ext import commands
 
+from utils import CustomContext
 from utils.errors import NotRegistered
 
 
@@ -13,7 +14,7 @@ class CommandErrorHandler(commands.Cog):
         self.bot = bot
 
     @commands.Cog.listener()
-    async def on_command_error(self, ctx, error):
+    async def on_command_error(self, ctx: CustomContext, error):
         owner_errors = (
             commands.MissingAnyRole,
             commands.MissingPermissions,
@@ -97,14 +98,14 @@ class CommandErrorHandler(commands.Cog):
 
         desc = (
             f"Command: {ctx.invoked_with}\n"
-            f"Full content: {ctx.escape(ctx.message.content)}\n"
+            f"Full content: {ctx.message.content}\n"
             f"Guild: {ctx.guild.name} ({ctx.guild.id})\n"
             f"Channel: {ctx.channel.name} ({ctx.channel.id})\n"
             f"User: {ctx.author.name} ({ctx.author.id})\n"
             f"Jump URL: {ctx.message.jump_url}"
         )
         embed = self.bot.embed(ctx, title='AN ERROR OCCURED', description=desc)
-        await self.bot.error_webhook.send(''.join(formatted), embed=embed)
+        await self.bot.error_webhook.send(f"```py\n" + ''.join(formatted) + f"```py\n", embed=embed)
 
         await ctx.send(
             f"Yikes, an error occured. Sorry about that. Here's a little info:"

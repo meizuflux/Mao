@@ -6,6 +6,7 @@ from asyncpg import UniqueViolationError
 from discord.ext import commands, tasks
 
 from utils import CustomContext, Mao, get_user_stats
+from rank_card import Generator
 
 log = logging.getLogger("Economy")
 
@@ -119,6 +120,21 @@ class Economy(commands.Cog):
         embed = self.bot.embed(ctx, author=False, title=f"{user.name}'s balance", description="\n".join(message))
         embed.set_thumbnail(url=user.avatar_url)
         await ctx.send(embed=embed)
+
+    @commands.command()
+    async def level(self, ctx: CustomContext):
+        args = {
+            'profile_image': ctx.author.avatar_url_as(format="png"),
+            'level': 1,
+            'current_xp': 0,
+            'user_xp': 10,
+            'next_xp': 100,
+            'user_position': 1,
+            'user_name': str(ctx.author),
+        }
+        image = Generator().generate_profile(**args)
+        file = discord.File(fp=image, filename='image.png')
+        await ctx.send(file=file)
 
 
 def setup(bot):
