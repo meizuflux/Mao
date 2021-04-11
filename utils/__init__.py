@@ -39,7 +39,7 @@ class Mao(commands.Bot):
 
     async def __prep(self):
         await self.wait_until_ready()
-        self.session = aiohttp.ClientSession(loop=self.loop)
+        self.session = aiohttp.ClientSession()
 
         async with self.pool_pg.acquire() as conn:
             async with conn.transaction():
