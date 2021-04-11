@@ -2,6 +2,7 @@ import logging
 import random
 
 import discord
+from asyncpg import UniqueViolationError
 from discord.ext import commands, tasks
 
 from utils import CustomContext, Mao, get_user_stats
@@ -88,7 +89,23 @@ class Economy(commands.Cog):
         method(ctx.guild.id)
 
     @commands.command()
-    async def balance(self, ctx: CustomContext, user: discord.User=None):
+    async def register(self, ctx: CustomContext):
+        """Registers you into the user database.
+        You can unregister with `{prefix}unregister`"""
+        query = (
+            """
+            INSERT INTO users (guild_id, user_id) VALUES ($1, $2)
+            """
+        )
+        try:
+            await self.bot.pool.execute(query, ctx.guild.id, ctx.author.id)
+        except UniqueViolationError:
+            return await ctx.send("You are already registered!")
+        await ctx.send("Registered you into the database.")
+
+    @commands.command(aliases=('bal', 'account'))
+    async def balance(self, ctx: CustomContext, user: discord.User = None):
+        """View yours or someone else's balance."""
         user = user or ctx.author
         items = ('cash', 'vault', 'pet_name', 'xp', 'level')
         cash, vault, pet, xp, level = await get_user_stats(ctx, user_id=user.id, items=items)

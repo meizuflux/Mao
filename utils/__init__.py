@@ -5,7 +5,7 @@ import os
 import aiohttp
 import discord
 import toml
-from discord.ext import commands
+from discord.ext import commands, menus
 
 from utils.db import Database, create_pool
 from utils.errors import NotRegistered
@@ -28,6 +28,7 @@ logging.basicConfig(
 class Mao(commands.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._BotBase__cogs = commands.core._CaseInsensitiveDict()
 
         #  core variables
         with open("config.toml") as f:
@@ -114,3 +115,8 @@ async def get_user_stats(ctx: CustomContext, user_id: int = None, items: iter = 
         message = "That user is not registered." if user != ctx.author.id else "You are not registered."
         raise NotRegistered(message)
     return tuple(stats.get(item) for item in items)
+
+
+class MaoPages(menus.MenuPages):
+    def __init__(self, source, **kwargs):
+        super().__init__(source=source, check_embeds=True, **kwargs)

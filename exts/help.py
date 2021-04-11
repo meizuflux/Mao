@@ -4,7 +4,50 @@ from typing import List
 import discord
 from discord.ext import commands, menus
 
-from utils import CustomContext, Mao
+from utils import CustomContext, Mao, MaoPages
+
+
+def get_sig(command, prefix):
+    sig = command.usage or command.signature
+    if not sig and not command.parent:
+        return f'`{prefix}{command.name}`'
+    if not command.parent:
+        return f'`{prefix}{command.name}` `{sig}`'
+    if not sig:
+        return f'`{prefix}{command.parent}` `{command.name}`'
+    return f'`{prefix}{command.parent}` `{command.name}` `{sig}`'
+
+
+def add_formatting(command):
+    fmt = '{0}' if command.short_doc else 'No help was provided for this command.'
+    return fmt.format(command.short_doc)
+
+
+class CogSource(menus.ListPageSource):
+    def __init__(self, cog: commands.Cog, cog_commands: List[commands.Command], *, prefix):
+        super().__init__(entries=cog_commands, per_page=5)
+        self.cog = cog
+        self.prefix = prefix
+
+    async def format_page(self, menu, cmds: List[commands.Command]):
+        ctx = menu.ctx
+        page = f"{menu.current_page + 1}/{self.get_max_pages()}"
+        embed = ctx.bot.embed(
+            ctx,
+            title=f"{self.cog.help_name} Commands | {page} ({len(self.entries)} Commands)"
+        )
+
+        for command in cmds:
+            embed.add_field(
+                name=get_sig(command, self.prefix),
+                value=add_formatting(command).format(prefix=self.prefix),
+                inline=False
+            )
+
+        if menu.current_page == 0:
+            embed.description = self.cog.description
+
+        return embed
 
 
 class HelpMenu(menus.Menu):
@@ -18,7 +61,13 @@ class HelpMenu(menus.Menu):
         await self.message.delete()
         self.message = None
         cog = self.bot.get_cog(cog_name)
-
+        menu = MaoPages(
+            CogSource(
+                cog,
+                await MaoHelp().filter_commands(cog.get_commands()),
+                prefix=self.prefix)
+        )
+        return menu
 
     async def send_initial_message(self, ctx: CustomContext, channel: discord.TextChannel):
         description = (
@@ -36,10 +85,11 @@ class HelpMenu(menus.Menu):
     @menus.button("\N{MONEY WITH WINGS}")
     async def economy_help(self, payload):
         menu = await self._send_cog_help("Economy")
+        await menu.start(self.ctx)
 
 
 class MaoHelp(commands.HelpCommand):
-    async def filter_commands(self, commands, *, sort=False, key=None):
+    async def filter_commands(self, commands, *, sort=True, key=None):
         if sort and key is None:
             key = lambda c: c.name
 
@@ -54,6 +104,11 @@ class MaoHelp(commands.HelpCommand):
 
         return ret
 
+    async def send_error_message(self, error):
+        bot = self.context.bot
+        destination = self.get_destination()
+        await destination.send(embed=bot.embed(self.context, description=str(error)))
+
     async def send_bot_help(self, data: Mapping[commands.Cog, List[commands.Command]]):
         items = {}
         for cog, cmds in data.items():
@@ -66,6 +121,43 @@ class MaoHelp(commands.HelpCommand):
 
         menu = HelpMenu(items, self.clean_prefix)
         await menu.start(self.context)
+
+    async def send_cog_help(self, cog: commands.Cog):
+        if not hasattr(cog, "help_name"):
+            return await self.send_error_message(self.command_not_found(cog.qualified_name))
+        menu = MaoPages(
+            CogSource(
+                cog,
+                await self.filter_commands(cog.get_commands()),
+                prefix=self.clean_prefix
+            )
+        )
+        await menu.start(self.context)
+
+    async def send_group_help(self, group: commands.Group):
+        pass
+
+    async def send_command_help(self, command: commands.Command):
+        if not hasattr(command.cog, "help_name"):
+            return await self.send_error_message(self.command_not_found(command.qualified_name))
+        ctx = self.context
+        embed = ctx.bot.embed(
+            ctx,
+            title=f"{command.cog.qualified_name.lower()}:{command.qualified_name}"
+        )
+        help = command.help or 'No help was provided for this command.'
+        embed.description = help.format(prefix=self.clean_prefix)
+        embed.add_field(
+            name="Usage",
+            value=get_sig(command, self.clean_prefix)
+        )
+        if aliases := command.aliases:
+            embed.add_field(
+                name="Aliases",
+                value="`" + "`, `".join(aliases) + "`"
+            )
+        destination = self.get_destination()
+        await destination.send(embed=embed)
 
 
 def setup(bot: Mao):
