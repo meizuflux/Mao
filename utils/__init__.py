@@ -111,6 +111,6 @@ async def get_user_stats(ctx: CustomContext, user_id: int = None, items: iter = 
     query = "SELECT " + ", ".join(items) + " FROM users WHERE guild_id = $1 AND user_id = $2"
     stats = await ctx.bot.pool.fetchrow(query, ctx.guild.id, user)
     if not stats:
-        message = "This user is not registered." if user != ctx.author.id else "You are not registered."
+        message = "That user is not registered." if user != ctx.author.id else "You are not registered."
         raise NotRegistered(message)
     return tuple(stats.get(item) for item in items)
