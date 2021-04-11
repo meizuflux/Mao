@@ -18,7 +18,7 @@ else:
 logger = logging.getLogger("Walrus")
 logging.basicConfig(
     format="%(levelname)s (%(name)s) |:| %(message)s |:| %(pathname)s:%(lineno)d",
-    datefmt="%m/%d/%Y %-I:%M:%S",
+    datefmt="%message/%d/%Y %-I:%M:%S",
     level=logging.INFO,
 )
 
