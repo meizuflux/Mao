@@ -53,7 +53,7 @@ class CogSource(menus.ListPageSource):
 class HelpMenu(menus.Menu):
     def __init__(self, data, prefix, **kwargs):
         super().__init__(**kwargs)
-        self.message: discord.Message = None
+        self.message = None
         self.prefix = prefix
         self.data = data
 
@@ -86,11 +86,11 @@ class HelpMenu(menus.Menu):
 
 
 class MaoHelp(commands.HelpCommand):
-    async def filter_commands(self, commands, *, sort=True, key=None):
+    async def filter_commands(self, cmds, *, sort=True, key=None):
         if sort and key is None:
             key = lambda c: c.name
 
-        iterator = commands if self.show_hidden else filter(lambda c: not c.hidden, commands)
+        iterator = cmds if self.show_hidden else filter(lambda c: not c.hidden, cmds)
 
         if self.verify_checks is False:
             return sorted(iterator, key=key) if sort else list(iterator)
@@ -142,8 +142,8 @@ class MaoHelp(commands.HelpCommand):
             ctx,
             title=f"{command.cog.qualified_name.lower()}:{command.qualified_name}"
         )
-        help = command.help or 'No help was provided for this command.'
-        embed.description = help.format(prefix=self.clean_prefix)
+        help_string = command.help or 'No help was provided for this command.'
+        embed.description = help_string.format(prefix=self.clean_prefix)
         embed.add_field(
             name="Usage",
             value=get_sig(command, self.clean_prefix)

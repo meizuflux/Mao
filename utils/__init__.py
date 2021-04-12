@@ -45,6 +45,7 @@ class Mao(commands.Bot):
         #  cache
         self.non_leveling_guilds: set = set()
         self.registered_users: set = set()
+        self._cd = commands.CooldownMapping.from_cooldown(5, 5, commands.BucketType.user)
 
     async def __prep(self):
         await self.wait_until_ready()
@@ -70,10 +71,19 @@ class Mao(commands.Bot):
 
                 leveling = await conn.fetch("SELECT guild_id FROM guild_config WHERE leveling = False")
                 self.non_leveling_guilds = {guild['guild_id'] for guild in leveling}
-                logging.info("Finished prep")
+                logger.info("Finished prep")
 
     async def on_ready(self):
-        logging.info("Connected to Discord.")
+        logger.info("Connected to Discord.")
+
+    async def process_commands(self, message: discord.Message):
+        bucket = self._cd.get_bucket(message)
+        retry_after = bucket.update_rate_limit()
+        if retry_after and not await self.is_owner(message.author):
+            raise commands.CommandOnCooldown(bucket, retry_after)
+
+        ctx = await self.get_context(message)
+        await self.invoke(ctx)
 
     def run(self, *args, **kwargs):
         for file in os.listdir("exts"):

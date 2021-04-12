@@ -6,8 +6,8 @@ import discord
 from asyncpg import UniqueViolationError
 from discord.ext import commands, tasks
 
-from utils import CustomContext, Mao, get_user_stats
 from rank_card import Generator
+from utils import CustomContext, Mao, get_user_stats
 
 log = logging.getLogger("Economy")
 

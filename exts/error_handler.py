@@ -51,7 +51,8 @@ class CommandErrorHandler(commands.Cog):
             return await ctx.send(embed=self.bot.embed(ctx, description=str(error)))
 
         if isinstance(error, discord.Forbidden):
-            return await ctx.send(embed=self.bot.embed(ctx, description=f'I do not have the correct permissions for `{command}`'))
+            return await ctx.send(
+                embed=self.bot.embed(ctx, description=f'I do not have the correct permissions for `{command}`'))
 
         if isinstance(error, commands.CommandOnCooldown):
             retry = humanize.precisedelta(error.retry_after)
@@ -69,7 +70,8 @@ class CommandErrorHandler(commands.Cog):
 
         if isinstance(error, commands.NoPrivateMessage):
             try:
-                return await ctx.author.send(embed=self.bot.embed(ctx, description=f"{ctx.invoked_with} cannot be used in DM's"))
+                return await ctx.author.send(
+                    embed=self.bot.embed(ctx, description=f"{ctx.invoked_with} cannot be used in DM's"))
             except discord.HTTPException:
                 pass
 
