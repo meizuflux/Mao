@@ -57,6 +57,11 @@ class HelpMenu(menus.Menu):
         self.prefix = prefix
         self.data = data
 
+    async def _send_cog_help(self, cog_name):
+        await self.message.delete()
+        self.message = None
+        await self.ctx.send_help(self.ctx.bot.get_cog(cog_name))
+
     async def send_initial_message(self, ctx: CustomContext, channel: discord.TextChannel):
         description = (
             "<argument> means the argument is required",
@@ -72,9 +77,7 @@ class HelpMenu(menus.Menu):
 
     @menus.button("\N{MONEY WITH WINGS}")
     async def economy_help(self, _):
-        await self.message.delete()
-        self.message = None
-        await self.ctx.send_help(self.ctx.bot.get_cog("Economy"))
+        await self._send_cog_help("Economy")
 
     @menus.button("\N{BLACK SQUARE FOR STOP}", position=menus.Last(2))
     async def stop(self, payload):
