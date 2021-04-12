@@ -1,9 +1,10 @@
 from collections import Mapping
-from typing import List
+from typing import List, Union
 
 import discord
 from discord.ext import commands, menus
 
+import core
 from utils import CustomContext, Mao, MaoPages
 
 
@@ -106,7 +107,7 @@ class MaoHelp(commands.HelpCommand):
         destination = self.get_destination()
         await destination.send(embed=bot.embed(self.context, description=str(error)))
 
-    async def send_bot_help(self, data: Mapping[commands.Cog, List[commands.Command]]):
+    async def send_bot_help(self, data: Mapping[commands.Cog, List[Union[core.command, commands.Command]]]):
         items = {}
         for cog, cmds in data.items():
             if not hasattr(cog, 'help_name'):
@@ -134,7 +135,7 @@ class MaoHelp(commands.HelpCommand):
     async def send_group_help(self, group: commands.Group):
         pass
 
-    async def send_command_help(self, command: commands.Command):
+    async def send_command_help(self, command: core.Command):
         if not hasattr(command.cog, "help_name"):
             return await self.send_error_message(self.command_not_found(command.qualified_name))
         ctx = self.context
@@ -146,12 +147,21 @@ class MaoHelp(commands.HelpCommand):
         embed.description = help_string.format(prefix=self.clean_prefix)
         embed.add_field(
             name="Usage",
-            value=get_sig(command, self.clean_prefix)
+            value=get_sig(command, self.clean_prefix),
+            inline=False
         )
         if aliases := command.aliases:
             embed.add_field(
                 name="Aliases",
-                value="`" + "`, `".join(aliases) + "`"
+                value="`" + "`, `".join(aliases) + "`",
+                inline=False
+            )
+        if examples := command.examples:
+            embed.add_field(
+                name="Examples",
+                value="\n".join(
+                    f'`{self.clean_prefix}{command.qualified_name}` `{example}`' if example else f'`{self.clean_prefix}{command.qualified_name}`' for example in examples
+                )
             )
         destination = self.get_destination()
         await destination.send(embed=embed)

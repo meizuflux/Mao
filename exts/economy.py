@@ -1,23 +1,25 @@
 import functools
 import logging
 import random
+from dataclasses import dataclass
 
 import discord
 from asyncpg import UniqueViolationError
 from discord.ext import commands, tasks
-from dataclasses import dataclass
 
+import core
 from rank_card import Generator
 from utils import CustomContext, Mao, get_user_stats
 
 log = logging.getLogger("Economy")
 
+
 @dataclass
 class Pet:
     name: str
+    description: str
     price: int
     boost: int
-
 
 
 class Economy(commands.Cog):
@@ -80,7 +82,7 @@ class Economy(commands.Cog):
     async def bulk_insert_task(self):
         await self.bulk_insert()
 
-    @commands.command(name="toggle-leveling", aliases=('toggleleveling',))
+    @core.command(name="toggle-leveling", aliases=('toggleleveling',))
     @commands.has_permissions(manage_guild=True)
     @commands.guild_only()
     async def toggle_leveling(self, ctx: CustomContext):
@@ -98,7 +100,7 @@ class Economy(commands.Cog):
         method = getattr(self.bot.non_leveling_guilds, "remove" if leveling else "add")
         method(ctx.guild.id)
 
-    @commands.command()
+    @core.command()
     async def register(self, ctx: CustomContext):
         """Registers you into the user database.
         You can unregister with `{prefix}unregister`"""
@@ -109,7 +111,7 @@ class Economy(commands.Cog):
             return await ctx.send("You are already registered!")
         await ctx.send("Registered you into the database.")
 
-    @commands.command(aliases=('bal', 'account'))
+    @core.command(aliases=('bal', 'account'), examples=('@user', None))
     async def balance(self, ctx: CustomContext, user: discord.User = None):
         """View yours or someone else's balance."""
         user = user or ctx.author
@@ -119,14 +121,14 @@ class Economy(commands.Cog):
             f"💸 Cash → {cash}",
             f"💰 Vault → {vault}",
             f"<:doggo:820992892515778650> Pet → {pet.title()}",
-            f"<:feyes:819694934209855488> XP → {xp}",
+            f"<:feyes:819694934209855488> XP → {xp} ({level * 1000 + xp} total)",
             f"🥗 Level → {level}"
         )
         embed = self.bot.embed(ctx, author=False, title=f"{user.name}'s balance", description="\n".join(message))
         embed.set_thumbnail(url=user.avatar_url)
         await ctx.send(embed=embed)
 
-    @commands.command(name='level-up', aliases=('lvlup', 'levelup'))
+    @core.command(name='level-up', aliases=('lvlup', 'levelup'))
     async def level_up(self, ctx: CustomContext):
         xp, level = await get_user_stats(ctx, items=('xp', 'level'))
 
@@ -145,18 +147,17 @@ class Economy(commands.Cog):
         await self.bot.pool.execute(query, ctx.guild.id, ctx.author.id, xp - cost)
         await ctx.send(f"Leveled you up to level {level + 1}!")
 
-    @commands.command(aliases=('xp', 'lvl', 'profile'))
-    @commands.cooldown(1, 5, commands.BucketType.user)
+    @core.command(aliases=('xp', 'lvl', 'profile'))
+    @commands.cooldown(rate=1, per=5, type=commands.BucketType.user)
     async def level(self, ctx: CustomContext, user: discord.User = None):
         user = user or ctx.author
         xp, level = await get_user_stats(ctx, user_id=user.id, items=('xp', 'level'))
         kwargs = {
             'profile_image': ctx.author.avatar_url_as(format="png"),
             'level': level,
-            'current_xp': 0,
             'user_xp': xp,
             'next_xp': level * 1000,
-            'user_name': ctx.author.name,
+            'user_name': str(ctx.author),
         }
         generator = functools.partial(Generator().generate_profile, **kwargs)
         image = await self.bot.loop.run_in_executor(None, generator)

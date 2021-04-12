@@ -10,7 +10,7 @@ class Generator:
         self.default_bg = os.path.join('assets', 'card.jpg')
         self.font1 = os.path.join('assets', 'font.ttf')
 
-    def generate_profile(self, profile_image: str = None, level: int = 1, current_xp: int = 0,
+    def generate_profile(self, profile_image: str = None, level: int = 1,
                          user_xp: int = 20, next_xp: int = 100, user_name: str = 'ppotatoo#9688'):
 
         card = Image.open(self.default_bg).convert("RGBA")
@@ -33,9 +33,6 @@ class Generator:
         font_small = ImageFont.truetype(self.font1, 20)
 
         black = (0, 0, 0)
-        white = 189, 195, 199
-        dark = (252, 179, 63)
-        yellow = (255, 234, 167)
 
         def get_str(xp):
             if xp < 1000:
@@ -46,7 +43,7 @@ class Generator:
                 return str(round(xp / 1000000, 1)) + "M"
 
         draw = ImageDraw.Draw(card)
-        draw.text((245, 22), user_name, black, font=font_normal)
+        draw.text((245, 35), user_name, black, font=font_normal)
         draw.text((245, 123), f"Level {level}", black, font=font_small)
         draw.text(
             (245, 150),
@@ -61,11 +58,11 @@ class Generator:
             (245, 185, 741, 205), fill=(255, 255, 255, 0), outline=black
         )
 
-        xp_needed = next_xp - current_xp
-        current_user_xp = user_xp - current_xp
+        #xp_needed = next_xp - current_xp
+        #current_user_xp = user_xp - current_xp
 
-        current_percentage = (current_user_xp / xp_needed) * 100
-        if xp_needed < current_user_xp:
+        current_percentage = (user_xp / next_xp) * 100
+        if next_xp < user_xp:
             current_percentage = 100
         length_of_bar = (current_percentage * 4.9) + 248
 
