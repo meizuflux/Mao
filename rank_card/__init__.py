@@ -11,8 +11,7 @@ class Generator:
         self.font1 = os.path.join('assets', 'font.ttf')
 
     def generate_profile(self, profile_image: str = None, level: int = 1, current_xp: int = 0,
-                         user_xp: int = 20, next_xp: int = 100, user_position: int = 1,
-                         user_name: str = 'ppotatoo#9688'):
+                         user_xp: int = 20, next_xp: int = 100, user_name: str = 'ppotatoo#9688'):
 
         card = Image.open(self.default_bg).convert("RGBA")
 
@@ -22,14 +21,13 @@ class Generator:
 
         profile_pic_holder = Image.new(
             "RGBA", card.size, (255, 255, 255, 0)
-        )  # Is used for a blank image so that i can mask
+        )
 
-        # Mask to crop image
-        mask = Image.new("RGBA", card.size, 0)
+        mask = Image.new("RGBA", card.size)
         mask_draw = ImageDraw.Draw(mask)
         mask_draw.ellipse(
             (29, 29, 209, 209), fill=(255, 25, 255, 255)
-        )  # The part need to be cropped
+        )
 
         font_normal = ImageFont.truetype(self.font1, 36)
         font_small = ImageFont.truetype(self.font1, 20)
@@ -49,7 +47,6 @@ class Generator:
 
         draw = ImageDraw.Draw(card)
         draw.text((245, 22), user_name, black, font=font_normal)
-        draw.text((245, 98), f"Rank #{user_position}", black, font=font_small)
         draw.text((245, 123), f"Level {level}", black, font=font_small)
         draw.text(
             (245, 150),
@@ -61,17 +58,18 @@ class Generator:
         blank = Image.new("RGBA", card.size, (255, 255, 255, 0))
         blank_draw = ImageDraw.Draw(blank)
         blank_draw.rectangle(
-            (245, 185, 750, 205), fill=(255, 255, 255, 0), outline=black
+            (245, 185, 741, 205), fill=(255, 255, 255, 0), outline=black
         )
 
         xp_needed = next_xp - current_xp
-        userxp = user_xp - current_xp
+        current_user_xp = user_xp - current_xp
 
-        current_percentage = (userxp / xp_needed) * 100
+        current_percentage = (current_user_xp / xp_needed) * 100
+        if xp_needed < current_user_xp:
+            current_percentage = 100
         length_of_bar = (current_percentage * 4.9) + 248
 
         blank_draw.rectangle((248, 188, length_of_bar, 202), fill=black)
-        blank_draw.ellipse((20, 20, 218, 218), fill=(255, 255, 255, 0), outline=black)
 
         profile_pic_holder.paste(profile, (29, 29, 209, 209))
 

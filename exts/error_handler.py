@@ -105,10 +105,10 @@ class CommandErrorHandler(commands.Cog):
             f"Jump URL: {ctx.message.jump_url}"
         )
         embed = self.bot.embed(ctx, title='AN ERROR OCCURED', description=desc)
-        await self.bot.error_webhook.send(f"```py\n" + ''.join(formatted) + f"```py\n", embed=embed)
+        await self.bot.error_webhook.send(f"```py\n" + ''.join(formatted) + f"```", embed=embed)
 
         await ctx.send(
-            f"Yikes, an error occured. Sorry about that. Here's a little info:"
+            f"Oops, an error occured. Sorry about that."
             f"```py\n{error}\n```"
         )
 

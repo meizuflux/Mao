@@ -1,3 +1,4 @@
+import functools
 import logging
 import random
 
@@ -93,11 +94,7 @@ class Economy(commands.Cog):
     async def register(self, ctx: CustomContext):
         """Registers you into the user database.
         You can unregister with `{prefix}unregister`"""
-        query = (
-            """
-            INSERT INTO users (guild_id, user_id) VALUES ($1, $2)
-            """
-        )
+        query = "INSERT INTO users (guild_id, user_id) VALUES ($1, $2);"
         try:
             await self.bot.pool.execute(query, ctx.guild.id, ctx.author.id)
         except UniqueViolationError:
@@ -122,18 +119,20 @@ class Economy(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command()
-    async def level(self, ctx: CustomContext):
-        args = {
+    async def level(self, ctx: CustomContext, user: discord.User = None):
+        user = user or ctx.author
+        xp, level = await get_user_stats(ctx, user_id=user.id, items=('xp', 'level'))
+        kwargs = {
             'profile_image': ctx.author.avatar_url_as(format="png"),
-            'level': 1,
-            'current_xp': 0,
-            'user_xp': 10,
-            'next_xp': 100,
-            'user_position': 1,
-            'user_name': str(ctx.author),
+            'level': level,
+            'current_xp': level * 500,
+            'user_xp': xp,
+            'next_xp': level * 1000,
+            'user_name': ctx.author.name,
         }
-        image = Generator().generate_profile(**args)
-        file = discord.File(fp=image, filename='image.png')
+        generator = functools.partial(Generator().generate_profile, **kwargs)
+        image = await self.bot.loop.run_in_executor(None, generator)
+        file = discord.File(fp=image, filename="image.png")
         await ctx.send(file=file)
 
 
