@@ -1,4 +1,3 @@
-import math
 import os
 from io import BytesIO
 
@@ -17,22 +16,6 @@ class Generator:
 
         card = Image.open(self.default_bg).convert("RGBA")
 
-        width, height = card.size
-        if width == 900 and height == 238:
-            pass
-        else:
-            x1 = 0
-            y1 = 0
-            x2 = width
-            nh = math.ceil(width * 0.264444)
-            y2 = 0
-
-            if nh < height:
-                y1 = (height / 2) - 119
-                y2 = nh + y1
-
-            card = card.crop((x1, y1, x2, y2)).resize((900, 238))
-
         profile_bytes = BytesIO(requests.get(profile_image).content)
         profile = Image.open(profile_bytes)
         profile = profile.convert('RGBA').resize((180, 180))
@@ -48,14 +31,11 @@ class Generator:
             (29, 29, 209, 209), fill=(255, 25, 255, 255)
         )  # The part need to be cropped
 
-        # Editing stuff here
-
-        # ======== Fonts to use =============
         font_normal = ImageFont.truetype(self.font1, 36)
         font_small = ImageFont.truetype(self.font1, 20)
 
-        # ======== Colors ========================
-        white = (189, 195, 199)
+        black = (0, 0, 0)
+        white = 189, 195, 199
         dark = (252, 179, 63)
         yellow = (255, 234, 167)
 
@@ -68,30 +48,30 @@ class Generator:
                 return str(round(xp / 1000000, 1)) + "M"
 
         draw = ImageDraw.Draw(card)
-        draw.text((245, 22), user_name, white, font=font_normal)
-        draw.text((245, 98), f"Rank #{user_position}", white, font=font_small)
-        draw.text((245, 123), f"Level {level}", white, font=font_small)
+        draw.text((245, 22), user_name, black, font=font_normal)
+        draw.text((245, 98), f"Rank #{user_position}", black, font=font_small)
+        draw.text((245, 123), f"Level {level}", black, font=font_small)
         draw.text(
             (245, 150),
             f"Exp {get_str(user_xp)}/{get_str(next_xp)}",
-            white,
+            black,
             font=font_small,
         )
 
         blank = Image.new("RGBA", card.size, (255, 255, 255, 0))
         blank_draw = ImageDraw.Draw(blank)
         blank_draw.rectangle(
-            (245, 185, 750, 205), fill=(255, 255, 255, 0), outline=white
+            (245, 185, 750, 205), fill=(255, 255, 255, 0), outline=black
         )
 
-        xpneed = next_xp - current_xp
-        xphave = user_xp - current_xp
+        xp_needed = next_xp - current_xp
+        userxp = user_xp - current_xp
 
-        current_percentage = (xphave / xpneed) * 100
+        current_percentage = (userxp / xp_needed) * 100
         length_of_bar = (current_percentage * 4.9) + 248
 
-        blank_draw.rectangle((248, 188, length_of_bar, 202), fill=white)
-        blank_draw.ellipse((20, 20, 218, 218), fill=(255, 255, 255, 0), outline=white)
+        blank_draw.rectangle((248, 188, length_of_bar, 202), fill=black)
+        blank_draw.ellipse((20, 20, 218, 218), fill=(255, 255, 255, 0), outline=black)
 
         profile_pic_holder.paste(profile, (29, 29, 209, 209))
 
