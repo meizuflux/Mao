@@ -25,7 +25,7 @@ def add_formatting(command):
 
 class CogSource(menus.ListPageSource):
     def __init__(self, cog: commands.Cog, cog_commands: List[commands.Command], *, prefix):
-        super().__init__(entries=cog_commands, per_page=5)
+        super().__init__(entries=cog_commands, per_page=4)
         self.cog = cog
         self.prefix = prefix
 
@@ -57,18 +57,6 @@ class HelpMenu(menus.Menu):
         self.prefix = prefix
         self.data = data
 
-    async def _send_cog_help(self, cog_name):
-        await self.message.delete()
-        self.message = None
-        cog = self.bot.get_cog(cog_name)
-        menu = MaoPages(
-            CogSource(
-                cog,
-                await MaoHelp().filter_commands(cog.get_commands()),
-                prefix=self.prefix)
-        )
-        return menu
-
     async def send_initial_message(self, ctx: CustomContext, channel: discord.TextChannel):
         description = (
             "<argument> means the argument is required",
@@ -83,9 +71,15 @@ class HelpMenu(menus.Menu):
         return self.message
 
     @menus.button("\N{MONEY WITH WINGS}")
-    async def economy_help(self, payload):
-        menu = await self._send_cog_help("Economy")
-        await menu.start(self.ctx)
+    async def economy_help(self, _):
+        await self.message.delete()
+        self.message = None
+        await self.ctx.send_help(self.ctx.bot.get_cog("Economy"))
+
+    @menus.button("\N{BLACK SQUARE FOR STOP}", position=menus.Last(2))
+    async def stop(self, payload):
+        await self.message.delete()
+        self.message = None
 
 
 class MaoHelp(commands.HelpCommand):

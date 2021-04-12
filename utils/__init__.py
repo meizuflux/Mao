@@ -130,3 +130,8 @@ async def get_user_stats(ctx: CustomContext, user_id: int = None, items: iter = 
 class MaoPages(menus.MenuPages):
     def __init__(self, source, **kwargs):
         super().__init__(source=source, check_embeds=True, **kwargs)
+
+    @menus.button('\N{BLACK SQUARE FOR STOP}\ufe0f', position=menus.Last(2))
+    async def end_menu(self, _):
+        await self.message.delete()
+        self.stop()

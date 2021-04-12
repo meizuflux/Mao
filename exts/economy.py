@@ -118,7 +118,18 @@ class Economy(commands.Cog):
         embed.set_thumbnail(url=user.avatar_url)
         await ctx.send(embed=embed)
 
-    @commands.command()
+    @commands.command(name='level-up', aliases=('lvlup', 'levelup'))
+    async def level_up(self, ctx: CustomContext):
+        xp, level = await get_user_stats(ctx, items=('xp', 'level'))
+
+        xp_needed = max((level * 1000) - xp, 0)
+
+        await ctx.send(f"You have {xp} XP and are level {level}.\n"
+                       f"You need {xp_needed} more xp to level up to level {level + 1}.\n"
+                       f"Leveling up will leave you with {xp - (level * 1000)} XP")
+
+    @commands.command(aliases=('xp', 'lvl', 'profile'))
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def level(self, ctx: CustomContext, user: discord.User = None):
         user = user or ctx.author
         xp, level = await get_user_stats(ctx, user_id=user.id, items=('xp', 'level'))
