@@ -108,11 +108,11 @@ class Economy(commands.Cog):
         items = ('cash', 'vault', 'pet_name', 'xp', 'level')
         cash, vault, pet, xp, level = await get_user_stats(ctx, user_id=user.id, items=items)
         message = (
-            f"Cash: {cash}",
-            f"Vault: {vault}",
-            f"Pet: {pet.capitalize()}",
-            f"XP: {xp}",
-            f"Level: {level}"
+            f"💸 Cash → {cash}",
+            f"💰 Vault → {vault}",
+            f"<:doggo:820992892515778650> Pet → {pet.title()}",
+            f"<:feyes:819694934209855488> XP → {xp}",
+            f"🥗 Level → {level}"
         )
         embed = self.bot.embed(ctx, author=False, title=f"{user.name}'s balance", description="\n".join(message))
         embed.set_thumbnail(url=user.avatar_url)
@@ -122,11 +122,20 @@ class Economy(commands.Cog):
     async def level_up(self, ctx: CustomContext):
         xp, level = await get_user_stats(ctx, items=('xp', 'level'))
 
+        cost = level * 1000
         xp_needed = max((level * 1000) - xp, 0)
 
-        await ctx.send(f"You have {xp} XP and are level {level}.\n"
-                       f"You need {xp_needed} more xp to level up to level {level + 1}.\n"
-                       f"Leveling up will leave you with {xp - (level * 1000)} XP")
+        if xp_needed != 0:
+            return await ctx.send(f"You need {xp_needed} more XP in order to level up to level {level + 1}")
+
+        query = (
+            """
+            UPDATE users SET level = level + 1, xp = $3
+            WHERE guild_id = $1 AND user_id = $2
+            """
+        )
+        await self.bot.pool.execute(query, ctx.guild.id, ctx.author.id, xp - cost)
+        await ctx.send(f"Leveled you up to level {level + 1}!")
 
     @commands.command(aliases=('xp', 'lvl', 'profile'))
     @commands.cooldown(1, 5, commands.BucketType.user)
@@ -136,7 +145,7 @@ class Economy(commands.Cog):
         kwargs = {
             'profile_image': ctx.author.avatar_url_as(format="png"),
             'level': level,
-            'current_xp': level * 500,
+            'current_xp': 0,
             'user_xp': xp,
             'next_xp': level * 1000,
             'user_name': ctx.author.name,
