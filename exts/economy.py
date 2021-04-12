@@ -5,11 +5,19 @@ import random
 import discord
 from asyncpg import UniqueViolationError
 from discord.ext import commands, tasks
+from dataclasses import dataclass
 
 from rank_card import Generator
 from utils import CustomContext, Mao, get_user_stats
 
 log = logging.getLogger("Economy")
+
+@dataclass
+class Pet:
+    name: str
+    price: int
+    boost: int
+
 
 
 class Economy(commands.Cog):

@@ -4,6 +4,7 @@ import os
 
 import aiohttp
 import discord
+import humanize
 import toml
 from discord.ext import commands, menus
 
@@ -47,6 +48,10 @@ class Mao(commands.Bot):
         self.registered_users: set = set()
         self._cd = commands.CooldownMapping.from_cooldown(5, 5, commands.BucketType.user)
 
+        #  bot management
+        self.maintenance = False
+        self.context = CustomContext
+
     async def __prep(self):
         await self.wait_until_ready()
         self.session: aiohttp.ClientSession = aiohttp.ClientSession()
@@ -76,11 +81,15 @@ class Mao(commands.Bot):
     async def on_ready(self):
         logger.info("Connected to Discord.")
 
+    async def get_context(self, message: discord.Message, *, cls=None):
+        """Method to override "ctx"."""
+        return await super().get_context(message, cls=cls or self.context)
+
     async def process_commands(self, message: discord.Message):
         bucket = self._cd.get_bucket(message)
         retry_after = bucket.update_rate_limit()
-        if retry_after and not await self.is_owner(message.author):
-            raise commands.CommandOnCooldown(bucket, retry_after)
+        if retry_after:
+            return
 
         ctx = await self.get_context(message)
         await self.invoke(ctx)
@@ -125,6 +134,14 @@ class CustomContext(commands.Context):
         for item in mark:
             text = text.replace(item, f'\u200b{item}')
         return
+
+    # https://github.com/InterStella0/stella_bot/blob/master/utils/useful.py#L199-L205
+    def plural(self, text, size):
+        logic = size == 1
+        target = (("(s)", ("s", "")), ("(is/are)", ("are", "is")))
+        for x, y in target:
+            text = text.replace(x, y[logic])
+        return text
 
 
 async def get_user_stats(ctx: CustomContext, user_id: int = None, items: iter = ('cash', 'vault')):

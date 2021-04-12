@@ -45,7 +45,9 @@ class CommandErrorHandler(commands.Cog):
         if isinstance(error, ignored):
             return
 
-        command = ctx.command.qualified_name
+        command = "global ratelimit"
+        if ctx.command:
+            command = ctx.command.qualified_name
 
         if isinstance(error, commands.CheckFailure):
             return await ctx.send(embed=self.bot.embed(ctx, description=str(error)))
@@ -61,7 +63,7 @@ class CommandErrorHandler(commands.Cog):
                 ctx,
                 description=(
                     f"<a:countdown:827916388659363870> **{command}** is on cooldown. Try again in {retry}.\n"
-                    f"You can use this command **{cd.rate} {ctx.plural('time(s)', cd.rate)} every {humanize.precisedelta(cd.per)}.\n"
+                    f"You can use this command **{cd.rate}** {ctx.plural('time(s)', cd.rate)} every {humanize.precisedelta(cd.per)}.\n"
                     f"Type: {cd.type.name}"
                 )
             )
