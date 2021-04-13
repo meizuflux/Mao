@@ -150,37 +150,35 @@ class MaoHelp(commands.HelpCommand):
             value=get_sig(command, self.clean_prefix),
             inline=False
         )
-        user_runnable = "✅"
-        bot_runnable = "✅"
+        user_runnable = "✅ "
+        bot_runnable = "✅ "
         if bot_perms := command.bot_perms:
-            perms = list(bot_perms)
-            for count, perm in enumerate(perms):
-                perms[count] = perm.lower().replace(" ", "_").replace("server", "guild")
-            e = 0
-            for perm in perms:
-                if getattr(ctx.me.guild_permissions, perm):
-                    e += 1
-            if e != len(perms):
-                bot_runnable = "❌"
-            else:
-                bot_runnable = "✅"
+            bot_perm_list = list(bot_perms)
+            for count, perm in enumerate(bot_perm_list):
+                bot_perm_list[count] = perm.lower().replace(" ", "_").replace("server", "guild")
+            counter = 0
+            for perm in bot_perm_list:
+                if hasattr(ctx.author.guild_permissions, perm):
+                    if getattr(ctx.author.guild_permissions, perm):
+                        counter += 1
+            if counter != len(bot_perm_list):
+                bot_runnable = "❌ "
         if user_perms := command.user_perms:
-            perms = list(user_perms)
-            for count, perm in enumerate(perms):
-                perms[count] = perm.lower().replace(" ", "_").replace("server", "guild")
-            e = 0
-            for perm in perms:
-                if getattr(ctx.me.guild_permissions, perm):
-                    e += 1
-            if e != len(perms):
-                bot_runnable = "❌"
-            else:
-                bot_runnable = "✅"
+            user_perm_list = list(user_perms)
+            for count, perm in enumerate(user_perm_list):
+                user_perm_list[count] = perm.lower().replace(" ", "_").replace("server", "guild")
+            counter = 0
+            for perm in user_perm_list:
+                if hasattr(ctx.me.guild_permissions, perm):
+                    if getattr(ctx.me.guild_permissions, perm):
+                        counter += 1
+            if counter != len(user_perm_list):
+                user_runnable = "❌ "
         embed.add_field(
             name="Permissions",
             value=(
-                f"{user_runnable} Permissions **you** need: `{'`, `'.join(command.user_perms)}`\n"
-                f"{bot_runnable} Permissions **I** need: `{'`, `'.join(command.bot_perms)}`\n"
+                f"{user_runnable}Permissions **you** need: `{'`, `'.join(command.user_perms)}`\n"
+                f"{bot_runnable}Permissions **I** need: `{'`, `'.join(command.bot_perms)}`\n"
             )
         )
         if aliases := command.aliases:

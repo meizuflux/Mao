@@ -1,22 +1,20 @@
 from discord.ext import commands
 
 
-def init(self, **attrs):
-    self.examples = attrs.pop("examples", None)
-    self.user_perms = attrs.pop("user_perms", ("None",))
-    self.bot_perms = attrs.pop("bot_perms", ('Send Messages',))
-
-
 class Command(commands.Command):
     def __init__(self, func, name, **attrs):
         super().__init__(func, name=name, **attrs)
-        init(self, **attrs)
+        self.examples = attrs.pop("examples", (None,))
+        self.user_perms = attrs.pop("user_perms", ("None",))
+        self.bot_perms = attrs.pop("bot_perms", ('Send Messages',))
 
 
 class Group(Command, commands.Group):
     def __init__(self, func, name, **attrs):
         super().__init__(func, name=name, **attrs)
-        init(self, **attrs)
+        self.examples = attrs.pop("examples", None)
+        self.user_perms = attrs.pop("user_perms", ("None",))
+        self.bot_perms = attrs.pop("bot_perms", ('Send Messages',))
 
 
 def command(name=None, cls=None, **attrs):

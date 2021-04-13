@@ -41,7 +41,6 @@ class Economy(commands.Cog):
             return
         if random.randint(1, 3) == 2:
             return
-
         xp = random.randint(66, 114)
         if data := self._data_batch:
             for msg in data:
@@ -82,7 +81,11 @@ class Economy(commands.Cog):
     async def bulk_insert_task(self):
         await self.bulk_insert()
 
-    @core.command(name="toggle-leveling", aliases=('toggleleveling',))
+    @core.command(
+        name="toggle-leveling",
+        aliases=('toggleleveling', 'toggle_leveling'),
+        bot_perms=('Send Messages')
+    )
     @commands.has_permissions(manage_guild=True)
     @commands.guild_only()
     async def toggle_leveling(self, ctx: CustomContext):
@@ -100,7 +103,10 @@ class Economy(commands.Cog):
         method = getattr(self.bot.non_leveling_guilds, "remove" if leveling else "add")
         method(ctx.guild.id)
 
-    @core.command()
+    @core.command(
+        aliases=('register-account',),
+        bot_perms=('Send Messages',)
+    )
     async def register(self, ctx: CustomContext):
         """Registers you into the user database.
         You can unregister with `{prefix}unregister`"""
@@ -111,7 +117,11 @@ class Economy(commands.Cog):
             return await ctx.send("You are already registered!")
         await ctx.send("Registered you into the database.")
 
-    @core.command(aliases=('bal', 'account'), examples=('@user', None), bot_perms=('Send Messages', 'Embed Links', 'Manage Server'))
+    @core.command(
+        aliases=('bal', 'account'),
+        examples=('@user', None),
+        bot_perms=('Send Messages', 'Embed Links', 'Use External Emojis')
+    )
     async def balance(self, ctx: CustomContext, user: discord.User = None):
         """View yours or someone else's balance."""
         user = user or ctx.author
@@ -128,7 +138,11 @@ class Economy(commands.Cog):
         embed.set_thumbnail(url=user.avatar_url)
         await ctx.send(embed=embed)
 
-    @core.command(name='level-up', aliases=('lvlup', 'levelup'))
+    @core.command(
+        name='level-up',
+        aliases=('lvlup', 'levelup'),
+        bot_perms=('Send Messages',)
+    )
     async def level_up(self, ctx: CustomContext):
         xp, level = await get_user_stats(ctx, items=('xp', 'level'))
 
@@ -147,7 +161,11 @@ class Economy(commands.Cog):
         await self.bot.pool.execute(query, ctx.guild.id, ctx.author.id, xp - cost)
         await ctx.send(f"Leveled you up to level {level + 1}!")
 
-    @core.command(aliases=('xp', 'lvl', 'profile'))
+    @core.command(
+        aliases=('xp', 'lvl', 'profile'),
+        examples=('@user', None),
+        bot_perms=('Send Messages', 'Attach Files')
+    )
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.user)
     async def level(self, ctx: CustomContext, user: discord.User = None):
         user = user or ctx.author
