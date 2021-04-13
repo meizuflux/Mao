@@ -144,6 +144,9 @@ class Economy(commands.Cog):
         bot_perms=('Send Messages',)
     )
     async def level_up(self, ctx: CustomContext):
+        """Levels you up to the next level."""
+        if ctx.guild.id in self.bot.non_leveling_guilds:
+            return await ctx.send("Leveling isn't enabled on your server.")
         xp, level = await get_user_stats(ctx, items=('xp', 'level'))
 
         cost = level * 1000
@@ -168,6 +171,10 @@ class Economy(commands.Cog):
     )
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.user)
     async def level(self, ctx: CustomContext, user: discord.User = None):
+        """View a user's level on the server.
+        Leveling must be toggled on in order for this to work."""
+        if ctx.guild.id in self.bot.non_leveling_guilds:
+            return await ctx.send("Leveling isn't enabled on your server.")
         user = user or ctx.author
         xp, level = await get_user_stats(ctx, user_id=user.id, items=('xp', 'level'))
         kwargs = {
