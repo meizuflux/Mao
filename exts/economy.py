@@ -111,7 +111,7 @@ class Economy(commands.Cog):
             return await ctx.send("You are already registered!")
         await ctx.send("Registered you into the database.")
 
-    @core.command(aliases=('bal', 'account'), examples=('@user', None))
+    @core.command(aliases=('bal', 'account'), examples=('@user', None), bot_perms=('Send Messages', 'Embed Links', 'Manage Server'))
     async def balance(self, ctx: CustomContext, user: discord.User = None):
         """View yours or someone else's balance."""
         user = user or ctx.author

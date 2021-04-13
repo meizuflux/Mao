@@ -3,6 +3,8 @@ from discord.ext import commands
 
 def init(self, **attrs):
     self.examples = attrs.pop("examples", None)
+    self.user_perms = attrs.pop("user_perms", ("None",))
+    self.bot_perms = attrs.pop("bot_perms", ('Send Messages',))
 
 
 class Command(commands.Command):
