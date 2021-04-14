@@ -4,7 +4,6 @@ import os
 
 import aiohttp
 import discord
-import humanize
 import toml
 from discord.ext import commands, menus
 
@@ -117,14 +116,6 @@ class Mao(commands.Bot):
 
 
 class CustomContext(commands.Context):
-    async def mystbin(self, data):
-        data = bytes(data, 'utf-8')
-        async with aiohttp.ClientSession() as cs:
-            async with cs.post('https://mystb.in/documents', data=data) as r:
-                res = await r.json()
-                key = res["key"]
-                return f"https://mystb.in/{key}"
-
     def escape(self, text: str):
         mark = [
             '`',
@@ -142,6 +133,13 @@ class CustomContext(commands.Context):
         for x, y in target:
             text = text.replace(x, y[logic])
         return text
+
+    async def mystbin(self, data):
+        data = bytes(data, 'utf-8')
+        async with self.bot.session.post('https://mystb.in/documents', data=data) as r:
+            res = await r.json()
+            key = res["key"]
+            return f"https://mystb.in/{key}"
 
 
 async def get_user_stats(ctx: CustomContext, user_id: int = None, items: iter = ('cash', 'vault')):
