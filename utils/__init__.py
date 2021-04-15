@@ -7,17 +7,19 @@ import discord
 import toml
 from discord.ext import commands, menus
 
+from utils.context import CustomContext
 from utils.db import Database, create_pool
 from utils.errors import NotRegistered
+from utils.timer import Timer
 
 try:
     import uvloop
 except ImportError:
-    pass
+    pass #  we're on windows
 else:
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
-logger = logging.getLogger("Walrus")
+logger = logging.getLogger("Mao")
 logging.basicConfig(
     format="%(levelname)s (%(name)s) |:| %(message)s |:| %(pathname)s:%(lineno)d",
     datefmt="%message/%d/%Y %-I:%M:%S",
@@ -113,43 +115,6 @@ class Mao(commands.Bot):
         if author:
             embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
         return embed
-
-
-class CustomContext(commands.Context):
-    def escape(self, text: str):
-        mark = [
-            '`',
-            '_',
-            '*'
-        ]
-        for item in mark:
-            text = text.replace(item, f'\u200b{item}')
-        return
-
-    # https://github.com/InterStella0/stella_bot/blob/master/utils/useful.py#L199-L205
-    def plural(self, text, size):
-        logic = size == 1
-        target = (("(s)", ("s", "")), ("(is/are)", ("are", "is")))
-        for x, y in target:
-            text = text.replace(x, y[logic])
-        return text
-
-    async def mystbin(self, data):
-        data = bytes(data, 'utf-8')
-        async with self.bot.session.post('https://mystb.in/documents', data=data) as r:
-            res = await r.json()
-            key = res["key"]
-            return f"https://mystb.in/{key}"
-
-
-async def get_user_stats(ctx: CustomContext, user_id: int = None, items: iter = ('cash', 'vault')):
-    user = user_id or ctx.author.id
-    query = "SELECT " + ", ".join(items) + " FROM users WHERE guild_id = $1 AND user_id = $2"
-    stats = await ctx.bot.pool.fetchrow(query, ctx.guild.id, user)
-    if not stats:
-        message = "That user is not registered." if user != ctx.author.id else "You are not registered."
-        raise NotRegistered(message)
-    return tuple(stats.get(item) for item in items)
 
 
 class MaoPages(menus.MenuPages):

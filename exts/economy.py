@@ -1,5 +1,4 @@
 import functools
-import json
 import logging
 import random
 from dataclasses import dataclass
@@ -10,7 +9,7 @@ from discord.ext import commands, tasks
 
 import core
 from rank_card import Generator
-from utils import CustomContext, Mao, get_user_stats
+from utils import CustomContext, Mao
 
 log = logging.getLogger("Economy")
 
@@ -29,6 +28,7 @@ class Economy(commands.Cog):
         self.help_name = f"\N{MONEY WITH WINGS} {self.__class__.__name__}"
         self._data_batch = []
         self.bulk_insert_task.start()
+        self._cooldown = commands.CooldownMapping.from_cooldown(2, 5, commands.BucketType.member)
 
     def cog_unload(self):
         self.bulk_insert_task.stop()
@@ -56,15 +56,18 @@ class Economy(commands.Cog):
         if message.author.bot:
             return
         if message.author.id not in self.bot.registered_users:
-
             return
         if message.guild.id in self.bot.non_leveling_guilds:
+            return
+        bucket = self._cooldown.get_bucket(message)
+        retry_after = bucket.update_rate_limit()
+        if retry_after:
             return
         self._data_batch.append(
             {
                 'guild': message.guild.id,
                 'user': message.author.id,
-                'xp': random.randint(15, 66)
+                'xp': random.randint(15, 56)
             }
         )
 
@@ -118,7 +121,7 @@ class Economy(commands.Cog):
         """View yours or someone else's balance."""
         user = user or ctx.author
         items = ('cash', 'vault', 'pet_name', 'xp', 'level')
-        cash, vault, pet, xp, level = await get_user_stats(ctx, user_id=user.id, items=items)
+        cash, vault, pet, xp, level = await self.bot.pool.fetch_user_stats(ctx, user_id=user.id, items=items)
         message = (
             f"💸 Cash → {cash}",
             f"💰 Vault → {vault}",
@@ -139,7 +142,7 @@ class Economy(commands.Cog):
         """Levels you up to the next level."""
         if ctx.guild.id in self.bot.non_leveling_guilds:
             return await ctx.send("Leveling isn't enabled on your server.")
-        xp, level = await get_user_stats(ctx, items=('xp', 'level'))
+        xp, level = await self.bot.pool.fetch_user_stats(ctx, items=('xp', 'level'))
 
         cost = level * 1000
         xp_needed = max((level * 1000) - xp, 0)
@@ -168,7 +171,7 @@ class Economy(commands.Cog):
         if ctx.guild.id in self.bot.non_leveling_guilds:
             return await ctx.send("Leveling isn't enabled on your server.")
         user = user or ctx.author
-        xp, level = await get_user_stats(ctx, user_id=user.id, items=('xp', 'level'))
+        xp, level = await self.bot.pool.fetch_user_stats(ctx, user_id=user.id, items=('xp', 'level'))
         kwargs = {
             'profile_image': user.avatar_url_as(format="png"),
             'level': level,
@@ -180,10 +183,6 @@ class Economy(commands.Cog):
         image = await self.bot.loop.run_in_executor(None, generator)
         file = discord.File(fp=image, filename="image.png")
         await ctx.send(file=file)
-
-    @core.command()
-    async def data(self, ctx):
-        await ctx.author.send(await ctx.mystbin(str(self._data_batch)))
 
 
 def setup(bot):
