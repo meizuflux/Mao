@@ -33,9 +33,12 @@ class CogSource(menus.ListPageSource):
     async def format_page(self, menu, cmds: List[commands.Command]):
         ctx = menu.ctx
         page = f"{menu.current_page + 1}/{self.get_max_pages()}"
+        name = self.cog.qualified_name
+        if hasattr(self.cog, 'help_name'):
+            name = self.cog.help_name
         embed = ctx.bot.embed(
             ctx,
-            title=f"{self.cog.help_name} Commands | {page} ({len(self.entries)} Commands)"
+            title=f"{name} Commands | {page} ({len(self.entries)} Commands)"
         )
 
         for command in cmds:
@@ -121,7 +124,7 @@ class MaoHelp(commands.HelpCommand):
         await menu.start(self.context)
 
     async def send_cog_help(self, cog: commands.Cog):
-        if not hasattr(cog, "help_name"):
+        if not hasattr(cog, "help_name") and not await self.context.bot.is_owner(self.context.author):
             return await self.send_error_message(self.command_not_found(cog.qualified_name))
         menu = MaoPages(
             CogSource(
@@ -136,7 +139,7 @@ class MaoHelp(commands.HelpCommand):
         pass
 
     async def send_command_help(self, command: core.Command):
-        if not hasattr(command.cog, "help_name"):
+        if not hasattr(command.cog, "help_name") and not await self.context.bot.is_owner(self.context.author):
             return await self.send_error_message(self.command_not_found(command.qualified_name))
         ctx = self.context
         embed = ctx.bot.embed(

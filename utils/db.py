@@ -1,7 +1,7 @@
 import asyncpg
 
-from utils.errors import NotRegistered
 from utils.context import CustomContext
+from utils.errors import NotRegistered
 
 
 class Database(asyncpg.Pool):
@@ -34,7 +34,7 @@ class Database(asyncpg.Pool):
         if kwargs.pop('release', False) and conn != self:
             await self.release(conn)
 
-    async def update_pet(self, ctx: CustomContext, name: str, **kwargs): # TODO add valid values
+    async def update_pet(self, ctx: CustomContext, name: str, **kwargs):  # TODO add valid values
         conn = kwargs.pop('con', self)
         user_id = kwargs.pop('user_id', ctx.author.id)
         query = """UPDATE users SET pet_name = $1 
@@ -42,6 +42,7 @@ class Database(asyncpg.Pool):
         await conn.execute(query, name, ctx.guild.id, user_id)
         if kwargs.pop('release', False) and conn != self:
             await self.release(conn)
+
 
 def create_pool(
         dsn=None, *,

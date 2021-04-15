@@ -113,7 +113,7 @@ class CommandErrorHandler(commands.Cog):
 
         await ctx.send(
             f"Oops, an error occured. Sorry about that."
-            f"```py\n{error}\n```"
+            f"```py\n{error.__class__.__name__}{error}\n```"
         )
 
 

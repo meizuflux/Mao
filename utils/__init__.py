@@ -98,7 +98,10 @@ class Mao(commands.Bot):
     def run(self, *args, **kwargs):
         for file in os.listdir("exts"):
             if not file.startswith("_"):
-                self.load_extension(f'exts.{file[:-3]}')
+                try:
+                    self.load_extension(f'exts.{file[:-3]}')
+                except Exception as err:
+                    logger.error(f"{file} failed to load: {err.__class__.__name__}: {err}")
         self.load_extension("jishaku")
         logger.info("Loaded extensions.")
         super().run(*args, **kwargs)
