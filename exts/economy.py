@@ -9,7 +9,7 @@ from discord.ext import commands, tasks
 
 import core
 from rank_card import Generator
-from utils import CustomContext, Mao
+from utils import CustomContext, Mao, messages, parse_number
 
 log = logging.getLogger("Economy")
 
@@ -121,11 +121,11 @@ class Economy(commands.Cog):
         items = ('cash', 'vault', 'pet_name', 'xp', 'level')
         cash, vault, pet, xp, level = await self.bot.pool.fetch_user_stats(ctx, user_id=user.id, items=items)
         message = (
-            f"💸 Cash → {cash}",
-            f"💰 Vault → {vault}",
-            f"<:doggo:820992892515778650> Pet → {pet.title()}",
-            f"<:feyes:819694934209855488> XP → {xp} ({level * 1000 + xp} total)",
-            f"🥗 Level → {level}"
+            f"💸 **Cash** → {cash}",
+            f"💰 **Vault** → {vault}",
+            f"🐊 **Pet** → {pet.title()}",
+            f"<:feyes:819694934209855488> **XP** → {xp} ({level * 1000 + xp} total)",
+            f"🥗 **Level** → {level}"
         )
         embed = self.bot.embed(ctx, author=False, title=f"{user.name}'s balance", description="\n".join(message))
         embed.set_thumbnail(url=user.avatar_url)
@@ -181,6 +181,37 @@ class Economy(commands.Cog):
         image = await self.bot.loop.run_in_executor(None, generator)
         file = discord.File(fp=image, filename="image.png")
         await ctx.send(file=file)
+
+    @core.command()
+    async def work(self, ctx: CustomContext):
+        """Work for a little bit of money."""
+        amount = random.randint(170, 567)
+        await self.bot.pool.update_user(ctx, method='wallet', amount=amount)
+        await ctx.send(embed=self.bot.embed(ctx, description=messages.work_message(amount)))
+
+    @core.command(
+        aliases=('wd', 'with'),
+        examples=('half', '56%', '18', 'all')
+    )
+    async def withdraw(self, ctx: CustomContext, amount: str):
+        "Withdraw money from your vault."
+        async with self.bot.pool.acquire() as conn:
+            vault = await self.bot.pool.fetch_user_stats(ctx, items=('vault',), con=conn)
+            amount = parse_number(argument=amount, total=vault)
+            await self.bot.pool.withdraw(ctx, amount=amount, con=conn, release=True)
+        await ctx.send(embed=self.bot.embed(ctx, description=f"You withdraw **${amount}** from your vault."))
+
+    @core.command(
+        aliases=('dep',),
+        examples=('half', '56%', '18', 'all')
+    )
+    async def deposit(self, ctx: CustomContext, amount: str):
+        "Withdraw money from your vault."
+        async with self.bot.pool.acquire() as conn:
+            cash = await self.bot.pool.fetch_user_stats(ctx, items=('cash',), con=conn)
+            amount = parse_number(argument=amount, total=cash)
+            await self.bot.pool.deposit(ctx, amount=amount, con=conn, release=True)
+        await ctx.send(embed=self.bot.embed(ctx, description=f"You deposit **${amount}** to your vault."))
 
 
 def setup(bot):

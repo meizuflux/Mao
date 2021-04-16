@@ -129,3 +129,52 @@ class MaoPages(menus.MenuPages):
     async def end_menu(self, _):
         await self.message.delete()
         self.stop()
+
+
+def parse_number(argument: str, total: int) -> int:
+    argument = argument.replace(",", "")
+    if "e" in argument and argument.replace("e", "").isdigit():
+        parts = argument.split("e")
+        try:
+            num = "0" * int(parts[1])
+            amount = int(parts[0] + num)
+        except ValueError:
+            raise commands.BadArgument("Invalid amount provided.")
+        except MemoryError:
+            raise commands.BadArgument("Woah, the number you provided was so large it broke Python. Try again with a smaller number.")
+
+    elif argument.endswith("%"):
+        argument = argument.strip("%")
+        if not argument.isdigit():
+            raise commands.BadArgument("That's... not a valid percentage.")
+        argument = round(float(argument))
+        if argument > 100:
+            raise commands.BadArgument("You can't do more than 100%.")
+        percentage = lambda percent, total_amount: (percent * total_amount) / 100
+        amount = percentage(argument, total)
+
+    elif argument == 'half':
+        amount = total / 2
+
+    elif argument in ('max', 'all'):
+        amount = total
+    elif argument.isdigit():
+        amount = int(argument)
+    else:
+        raise commands.BadArgument("Invalid amount provided.")
+
+    try:
+        amount = int(round(amount))
+    except OverflowError:
+        raise commands.BadArgument("Woah, the number you provided was so large it broke Python. Try again with a smaller number.")
+
+    if amount == 0:
+        raise commands.BadArgument("The amount you provided resulted in 0.")
+
+    if amount > total:
+        raise commands.BadArgument("That's more money than you have.")
+
+    if amount > 100000000000:
+        raise commands.BadArgument("Transfers of money over one hundred billion are prohibited.")
+
+    return amount

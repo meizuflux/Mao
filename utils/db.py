@@ -43,6 +43,24 @@ class Database(asyncpg.Pool):
         if kwargs.pop('release', False) and conn != self:
             await self.release(conn)
 
+    async def withdraw(self, ctx: CustomContext, amount: int, **kwargs):
+        conn = kwargs.pop('con', self)
+        query = """UPDATE users SET cash = cash + $1, vault = vault - $1
+                    WHERE guild_id = $2 AND user_id = $3"""
+
+        await conn.execute(query, amount, ctx.guild.id, ctx.author.id)
+        if kwargs.pop('release', False) and conn != self:
+            await self.release(conn)
+
+    async def deposit(self, ctx: CustomContext, amount: int, **kwargs):
+        conn = kwargs.pop('con', self)
+        query = """UPDATE users SET cash = cash - $1, vault = vault + $1
+                    WHERE guild_id = $2 AND user_id = $3"""
+
+        await conn.execute(query, amount, ctx.guild.id, ctx.author.id)
+        if kwargs.pop('release', False) and conn != self:
+            await self.release(conn)
+
 
 def create_pool(
         dsn=None, *,
