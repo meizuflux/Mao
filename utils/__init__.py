@@ -111,12 +111,13 @@ class Mao(commands.Bot):
         await self.pool.close()
         await super().close()
 
-    def embed(self, ctx, author=True, **kwargs):
+    def embed(self, ctx=None, author=True, **kwargs):
         color = kwargs.pop("color", self.embed_color)
         embed = discord.Embed(**kwargs, color=color)
-        embed.timestamp = ctx.message.created_at
-        if author:
-            embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
+        if ctx:
+            embed.timestamp = ctx.message.created_at
+            if author:
+                embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
         return embed
 
 

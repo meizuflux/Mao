@@ -1,0 +1,4 @@
+[core]
+token = "your bot token, duh"
+postgres_dsn = "postgres connection dsn, this is on asyncpg docs"
+error_webhook = "link to a webhook for which to send errors" 

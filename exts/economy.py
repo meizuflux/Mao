@@ -37,17 +37,16 @@ class Economy(commands.Cog):
         if not self._data_batch:
             return
         async with self.bot.pool.acquire() as conn:
-            async with conn.transaction():
-                query = (
-                    """
-                    UPDATE users SET xp = xp + $3
-                    WHERE guild_id = $1 AND user_id = $2
-                    """
-                )
-                await conn.executemany(
-                    query,
-                    tuple((msg['guild'], msg['user'], msg['xp']) for msg in self._data_batch)
-                )
+            query = (
+                """
+                UPDATE users SET xp = xp + $3
+                WHERE guild_id = $1 AND user_id = $2
+                """
+            )
+            await conn.executemany(
+                query,
+                tuple((m['guild'], m['user'], m['xp']) for m in self._data_batch)
+            )
         log.info(f"Inserted XP. Messages: {len(self._data_batch)}")
         self._data_batch.clear()
 
@@ -98,8 +97,7 @@ class Economy(commands.Cog):
         method(ctx.guild.id)
 
     @core.command(
-        aliases=('register-account',),
-        bot_perms=('Send Messages',)
+        aliases=('register-account',)
     )
     async def register(self, ctx: CustomContext):
         """Registers you into the user database.
