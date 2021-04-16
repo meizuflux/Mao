@@ -7,14 +7,16 @@ import import_expression
 import discord
 from discord.ext import commands
 from jishaku.codeblocks import codeblock_converter
+from tabulate import tabulate
 
 import core
-from utils import CustomContext, Mao
+from utils import CustomContext, Mao, Timer, codeblock
 
 
 class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot: Mao = bot
+        self.pool = self.bot.pool
 
     async def cog_check(self, ctx):
         return await self.bot.is_owner(ctx.author)
@@ -76,6 +78,36 @@ class Admin(commands.Cog):
                 f"{value}{ret}```",
                 **kwargs
             )
+
+    @core.group()
+    async def sql(self, ctx: CustomContext):
+        if not ctx.invoked_subcommand:
+            await ctx.send_help(ctx.command)
+
+    @sql.command(aliases=('e',))
+    async def execute(self, ctx: CustomContext, *, query: str):
+        with Timer() as timer:
+            ret = await self.pool.execute(query.strip('`'))
+        await ctx.send(f"`{ret}`\n**Executed in {timer.ms}ms**")
+
+    @sql.command(aliases=('f',))
+    async def fetch(self, ctx: CustomContext, *, query: str):
+        with Timer() as timer:
+            ret = await self.pool.fetch(query.strip('`'))
+        table = tabulate(
+            (dict(row) for row in ret),
+            headers='keys',
+            tablefmt='github'
+        )
+        if len(table) > 1000:
+            table = await ctx.mystbin(table)
+        await ctx.send(f"{codeblock(table)}\n**Retrieved {len(ret)} rows in {timer.ms:.2f}ms**")
+
+    @sql.command(aliases=('fv',))
+    async def fetchval(self, ctx: CustomContext, *, query: str):
+        with Timer() as timer:
+            ret = await self.pool.fetchval(query.strip('`'))
+        await ctx.send(f"{codeblock(f'{ret!r}')}\n**Retrieved in {timer.ms}ms**")
 
 
 def setup(bot: Mao):

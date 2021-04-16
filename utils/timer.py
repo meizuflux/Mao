@@ -12,23 +12,18 @@ class Timer:
 
     def __exit__(self, *args):
         self._end = time.perf_counter()
+        self.elapsed = self._end - self._start
+        self.ms = self.elapsed * 1000
 
     def __int__(self):
-        return round(self.time)
+        return round(self.elapsed)
 
     def __float__(self):
-        return self.time
+        return self.elapsed
 
     def __str__(self):
         return str(self.__float__())
 
-    @property
-    def time(self):
-        return self._end - self._start
-
     def __repr__(self):
-        return f"<Timer time={self.time}, ms={self.ms}>"
+        return f"<Timer elapsed={self.elapsed}, ms={self.ms}>"
 
-    @property
-    def ms(self):
-        return self.time * 1000

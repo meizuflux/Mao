@@ -54,9 +54,9 @@ class Economy(commands.Cog):
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
-        if message.author.id not in self.bot.registered_users:
+        if message.guild.id in self.bot.cache['guilds']['non_leveling']:
             return
-        if message.guild.id in self.bot.non_leveling_guilds:
+        if message.author.id not in self.bot.cache['registered_users']:
             return
         bucket = self._cooldown.get_bucket(message)
         retry_after = bucket.update_rate_limit()
@@ -120,11 +120,14 @@ class Economy(commands.Cog):
         user = user or ctx.author
         items = ('cash', 'vault', 'pet_name', 'xp', 'level')
         cash, vault, pet, xp, level = await self.bot.pool.fetch_user_stats(ctx, user_id=user.id, items=items)
+        total_xp = xp
+        for num in range(level + 1):
+            total_xp += num * 1000
         message = (
             f"💸 **Cash** → {cash}",
             f"💰 **Vault** → {vault}",
             f"🐊 **Pet** → {pet.title()}",
-            f"<:feyes:819694934209855488> **XP** → {xp} ({level * 1000 + xp} total)",
+            f"<:feyes:819694934209855488> **XP** → {xp} ({total_xp} total)",
             f"🥗 **Level** → {level}"
         )
         embed = self.bot.embed(ctx, author=False, title=f"{user.name}'s balance", description="\n".join(message))

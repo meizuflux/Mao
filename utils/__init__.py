@@ -15,7 +15,7 @@ from utils.timer import Timer
 try:
     import uvloop
 except ImportError:
-    pass #  we're on windows
+    pass  # we're on windows
 else:
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
@@ -49,7 +49,7 @@ class Mao(commands.Bot):
             'registered_users': set(),
             'guilds': {
                 'non_leveling': set()
-                }
+            }
         }
         self.non_leveling_guilds: set = set()
         self.registered_users: set = set()
@@ -73,8 +73,7 @@ class Mao(commands.Bot):
                 await conn.execute(f.read())
 
             users = await conn.fetch("SELECT user_id FROM users")
-            self.registered_users = {user["user_id"] for user in users}
-            self.cache['registered_users'] = self.registered_users
+            self.cache['registered_users'] = {user["user_id"] for user in users}
 
             await conn.executemany(
                 "INSERT INTO guilds (guild_id) VALUES ($1) ON CONFLICT DO NOTHING",
@@ -87,8 +86,7 @@ class Mao(commands.Bot):
             )
 
             leveling = await conn.fetch("SELECT guild_id FROM guild_config WHERE leveling = False")
-            self.non_leveling_guilds = {guild['guild_id'] for guild in leveling}
-            self.cache['guilds']['leveling'] = self.non_leveling_guilds
+            self.cache['guilds']['non_leveling'] = {guild['guild_id'] for guild in leveling}
 
             logger.info("Finished prep")
 
@@ -113,7 +111,7 @@ class Mao(commands.Bot):
             if not file.startswith("_"):
                 try:
                     self.load_extension(f'exts.{file[:-3]}')
-                except Exception as err:
+                except Exception as err:  # if we don't catch this, the bot crashes. no please
                     logger.error(f"{file} failed to load: {err.__class__.__name__}: {err}")
         self.load_extension("jishaku")
         logger.info("Loaded extensions.")
@@ -154,7 +152,8 @@ def parse_number(argument: str, total: int) -> int:
         except ValueError:
             raise commands.BadArgument("Invalid amount provided.")
         except MemoryError:
-            raise commands.BadArgument("Woah, the number you provided was so large it broke Python. Try again with a smaller number.")
+            raise commands.BadArgument(
+                "Woah, the number you provided was so large it broke Python. Try again with a smaller number.")
 
     elif argument.endswith("%"):
         argument = argument.strip("%")
@@ -179,7 +178,8 @@ def parse_number(argument: str, total: int) -> int:
     try:
         amount = int(round(amount))
     except OverflowError:
-        raise commands.BadArgument("Woah, the number you provided was so large it broke Python. Try again with a smaller number.")
+        raise commands.BadArgument(
+            "Woah, the number you provided was so large it broke Python. Try again with a smaller number.")
 
     if amount == 0:
         raise commands.BadArgument("The amount you provided resulted in 0.")
@@ -191,3 +191,25 @@ def parse_number(argument: str, total: int) -> int:
         raise commands.BadArgument("Transfers of money over one hundred billion are prohibited.")
 
     return amount
+
+
+def codeblock(t, *, lang='py'):
+    return f'```{lang}\n{t}```'
+
+
+class plural:
+    def __init__(self, value):
+        self.value = value
+
+    #  modified code from stella
+    def __format__(self, text):
+        logic = self.value == 1
+        target = (
+            ("(s)", ("s", "")),
+            ("(es)", ("es", "")),
+            ("(is/are)", ("are", "is")),
+            ("(is/ese)", ("ese", "is"))
+        )
+        for x, y in target:
+            text = text.replace(x, y[logic])
+        return text
