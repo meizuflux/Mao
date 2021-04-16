@@ -26,3 +26,4 @@ class CustomContext(commands.Context):
             res = await r.json()
             key = res["key"]
             return f"https://mystb.in/{key}"
+            
