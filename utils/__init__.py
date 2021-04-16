@@ -45,6 +45,12 @@ class Mao(commands.Bot):
         self.loop.create_task(self.__prep())
 
         #  cache
+        self.cache = {
+            'registered_users': set(),
+            'guilds': {
+                'non_leveling': set()
+                }
+        }
         self.non_leveling_guilds: set = set()
         self.registered_users: set = set()
         self._cd = commands.CooldownMapping.from_cooldown(5, 5, commands.BucketType.user)
@@ -55,29 +61,36 @@ class Mao(commands.Bot):
 
     async def __prep(self):
         await self.wait_until_ready()
-        self.session: aiohttp.ClientSession = aiohttp.ClientSession()
+
+        self.session: aiohttp.ClientSession = aiohttp.ClientSession(loop=self.loop)
         self.error_webhook = discord.Webhook.from_url(
             self.settings["core"]["error_webhook"],
             adapter=discord.AsyncWebhookAdapter(self.session)
         )
 
         async with self.pool.acquire() as conn:
-            async with conn.transaction():
-                with open("schema.sql") as f:
-                    await conn.execute(f.read())
+            with open("schema.sql") as f:
+                await conn.execute(f.read())
 
-                users = await conn.fetch("SELECT user_id FROM users")
-                self.registered_users = {user["user_id"] for user in users}
+            users = await conn.fetch("SELECT user_id FROM users")
+            self.registered_users = {user["user_id"] for user in users}
+            self.cache['registered_users'] = self.registered_users
 
-                await conn.executemany("INSERT INTO guilds (guild_id) VALUES ($1) ON CONFLICT DO NOTHING",
-                                       tuple((g.id,) for g in self.guilds))
+            await conn.executemany(
+                "INSERT INTO guilds (guild_id) VALUES ($1) ON CONFLICT DO NOTHING",
+                tuple((g.id,) for g in self.guilds)
+            )
 
-                await conn.executemany("INSERT INTO guild_config (guild_id) VALUES ($1) ON CONFLICT DO NOTHING",
-                                       tuple((g.id,) for g in self.guilds))
+            await conn.executemany(
+                "INSERT INTO guild_config (guild_id) VALUES ($1) ON CONFLICT DO NOTHING",
+                tuple((g.id,) for g in self.guilds)
+            )
 
-                leveling = await conn.fetch("SELECT guild_id FROM guild_config WHERE leveling = False")
-                self.non_leveling_guilds = {guild['guild_id'] for guild in leveling}
-                logger.info("Finished prep")
+            leveling = await conn.fetch("SELECT guild_id FROM guild_config WHERE leveling = False")
+            self.non_leveling_guilds = {guild['guild_id'] for guild in leveling}
+            self.cache['guilds']['leveling'] = self.non_leveling_guilds
+
+            logger.info("Finished prep")
 
     async def on_ready(self):
         logger.info("Connected to Discord.")
