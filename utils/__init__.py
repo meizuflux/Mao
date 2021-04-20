@@ -8,7 +8,7 @@ import toml
 from discord.ext import commands, menus
 
 from utils.context import CustomContext
-from utils.db import Database, create_pool
+from utils.db import *
 from utils.errors import NotRegistered
 from utils.timer import Timer
 

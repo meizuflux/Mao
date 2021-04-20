@@ -1,5 +1,6 @@
 import asyncpg
 
+from .__init__ import Mao
 from utils.context import CustomContext
 from utils.errors import NotRegistered
 
@@ -60,6 +61,52 @@ class Database(asyncpg.Pool):
         await conn.execute(query, amount, ctx.guild.id, ctx.author.id)
         if kwargs.pop('release', False) and conn != self:
             await self.release(conn)
+
+
+class Manager(asyncpg.Pool):
+    def __init__(self, bot: Mao, *args, **kwargs):
+        self.bot = bot
+        self.cache = {}
+        super().__init__(*args, **kwargs)
+
+    def update_cache(self, table, _id, column, new):
+        self.cache.update({table: self.route(table) or {}})
+        self.cache[table].update({_id: self.route(table, _id) or {}})
+        self.cache[table][_id][column] = new
+
+    def overwrite_cache_entry(self, table, _id, new):
+        self.cache.update({table: self.route(table) or {}})
+        self.cache[table].update({_id: new})
+
+    def route(self, *directions):
+        ret = self.cache
+        for place in directions:
+            ret = ret.get(place, {})
+
+        return ret or None
+
+    async def do_release(self, conn, to_release):
+        if to_release and conn != self:
+            await super().release(conn)
+
+    def fetch_data(self, table, items='*', params=None, conn=None, release=False, column=None, **kwargs):
+        if kwargs.keys() != params:
+            return None
+        conn = conn or self
+        _params = ""
+        if params:
+            _params = " WHERE " + " AND ".join(f"{item} = ${num}" for num, item in enumerate(params, start=1))
+
+        query = "SELECT " + ", ".join(items) + f" FROM {table}" + _params
+        ret = await conn.fetchrow(query, **kwargs)
+        if not column:
+            self.overwrite_cache_entry(table, dict(ret), **kwargs)
+        try:
+            res = ret[column] if column else ret
+            self.update_cache(table, user.id, column, res)
+            return dict(ret)
+        finally:
+            await self.do_release(conn, release)
 
 
 def create_pool(
