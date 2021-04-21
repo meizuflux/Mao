@@ -42,6 +42,9 @@ class Mao(commands.Bot):
         self.pool: Database = self.loop.run_until_complete(
             create_pool(dsn=self.settings['core']['postgres_dsn'], loop=self.loop)
         )
+        self.test_db: Manager = self.loop.run_until_complete(
+            create_test_pool(bot=self, dsn=self.settings['core']['postgres_dsn'], loop=self.loop)
+        )
         self.loop.create_task(self.__prep())
 
         #  cache
