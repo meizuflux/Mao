@@ -17,4 +17,11 @@ CREATE TABLE IF NOT EXISTS users (
     xp BIGINT DEFAULT 0,
     level BIGINT DEFAULT 1,
     PRIMARY KEY (guild_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS cooldowns (
+    guild_id BIGINT REFERENCES guilds ON DELETE CASCADE DEFAULT NULL,
+    user_id BIGINT,
+    command TEXT,
+    expires DOUBLE PRECISION
 )

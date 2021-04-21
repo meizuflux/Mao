@@ -77,7 +77,7 @@ class Economy(commands.Cog):
     @core.command(
         name="toggle-leveling",
         aliases=('toggleleveling', 'toggle_leveling'),
-        bot_perms=('Send Messages')
+        bot_perms=('Send Messages',)
     )
     @commands.has_permissions(manage_guild=True)
     @commands.guild_only()
@@ -107,13 +107,14 @@ class Economy(commands.Cog):
             await self.bot.pool.execute(query, ctx.guild.id, ctx.author.id)
         except UniqueViolationError:
             return await ctx.send("You are already registered!")
-        self.bot.registered_users.add(ctx.author.id)
+        self.bot.cache['registered_users'].add(ctx.author.id)
         await ctx.send("Registered you into the database.")
 
     @core.command(
         aliases=('bal', 'account'),
         examples=('@user', None),
-        bot_perms=('Send Messages', 'Embed Links', 'Use External Emojis')
+        bot_perms=('Send Messages', 'Embed Links', 'Use External Emojis'),
+        cd=core.Cooldown(2, False)
     )
     async def balance(self, ctx: CustomContext, user: discord.User = None):
         """View yours or someone else's balance."""
@@ -127,7 +128,7 @@ class Economy(commands.Cog):
             f"💸 **Cash** → {cash}",
             f"💰 **Vault** → {vault}",
             f"🐊 **Pet** → {pet.title()}",
-            f"<:feyes:819694934209855488> **XP** → {xp} ({total_xp} total)",
+            f"<:feyes:819694934209855488> **XP** → {xp} ({total_xp - 1000} total)",
             f"🥗 **Level** → {level}"
         )
         embed = self.bot.embed(ctx, author=False, title=f"{user.name}'s balance", description="\n".join(message))
@@ -209,12 +210,23 @@ class Economy(commands.Cog):
         examples=('half', '56%', '18', 'all')
     )
     async def deposit(self, ctx: CustomContext, amount: str):
-        "Withdraw money from your vault."
+        """Withdraw money from your vault."""
         async with self.bot.pool.acquire() as conn:
             cash = await self.bot.pool.fetch_user_stats(ctx, items=('cash',), con=conn)
             amount = parse_number(argument=amount, total=cash)
             await self.bot.pool.deposit(ctx, amount=amount, con=conn, release=True)
         await ctx.send(embed=self.bot.embed(ctx, description=f"You deposit **${amount}** to your vault."))
+
+    @core.command(
+        cd=core.Cooldown(86400, True)
+    )
+    async def daily(self, ctx: CustomContext):
+        """Collect money daily."""
+        async with self.bot.test_db.acquire() as conn:
+            data = await self.bot.test_db.fetch_user_stats(ctx, items=('level',), conn=conn)
+            boost = data['level'] * 0.05
+            await self.bot.test_db.edit_user(ctx, 'cash', int(500 * (boost + 1)), conn=conn, release=True)
+        await ctx.send(embed=self.bot.embed(ctx, desciption=f"You collect **$500**. Because you are level {data['level']}, you earn an extra **${int(500 * boost)}**"))
 
 
 def setup(bot):

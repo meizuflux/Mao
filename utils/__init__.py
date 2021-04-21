@@ -1,12 +1,16 @@
 import asyncio
 import logging
 import os
+import time
+from datetime import datetime
 
 import aiohttp
 import discord
 import toml
 from discord.ext import commands, menus
 
+from core import Command
+from core import CustomCooldownBucket
 from utils.context import CustomContext
 from utils.db import *
 from utils.errors import NotRegistered
@@ -64,7 +68,6 @@ class Mao(commands.Bot):
 
     async def __prep(self):
         await self.wait_until_ready()
-
         self.session: aiohttp.ClientSession = aiohttp.ClientSession(loop=self.loop)
         self.error_webhook = discord.Webhook.from_url(
             self.settings["core"]["error_webhook"],
@@ -101,12 +104,36 @@ class Mao(commands.Bot):
         return await super().get_context(message, cls=cls or self.context)
 
     async def process_commands(self, message: discord.Message):
+        await self.wait_until_ready()
         bucket = self._cd.get_bucket(message)
         retry_after = bucket.update_rate_limit()
         if retry_after:
             return
 
         ctx = await self.get_context(message)
+        if not isinstance(ctx.command, Command):
+            pass
+        else:
+            if not ctx.command.cd:
+                pass
+            else:
+                _type = 'guild' if ctx.command.cd.guild else 'user'
+                try:
+                    if _type == 'user':
+                        expires = self.test_db.cache['cooldowns'][_type][ctx.author.id][ctx.command.qualified_name]
+                    if _type == 'guild':
+                        expires = self.test_db.cache['cooldowns'][_type][ctx.guild.id][ctx.author.id][ctx.command.qualified_name]
+                    if expires > time.time():
+                        self.dispatch(
+                            'command_error',
+                            ctx,
+                            commands.CommandOnCooldown(CustomCooldownBucket(rate=1, per=ctx.command.cd.rate, type=_type),
+                            (datetime.utcfromtimestamp(expires) - datetime.utcnow()).seconds
+                            )
+                        )
+                        return
+                except KeyError:
+                    pass
         await self.invoke(ctx)
 
     def run(self, *args, **kwargs):

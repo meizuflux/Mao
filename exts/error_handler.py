@@ -22,8 +22,8 @@ class CommandErrorHandler(commands.Cog):
             commands.CommandOnCooldown,
             commands.DisabledCommand,
         )
-        if await self.bot.is_owner(ctx.author) and isinstance(error, owner_errors):
-            return await ctx.reinvoke()
+        #if await self.bot.is_owner(ctx.author) and isinstance(error, owner_errors):
+            #return await ctx.reinvoke()
 
         if not isinstance(error, (commands.CommandNotFound, commands.CommandOnCooldown)):
             ctx.command.reset_cooldown(ctx)
@@ -63,8 +63,8 @@ class CommandErrorHandler(commands.Cog):
                 ctx,
                 description=(
                     f"<a:countdown:827916388659363870> **{command}** is on cooldown. Try again in {retry}.\n"
-                    f"You can use this command **{cd.rate}** {ctx.plural('time(s)', cd.rate)} every {humanize.precisedelta(cd.per)}.\n"
-                    f"Type: {cd.type.name}"
+                    f"You can use this command **{cd.rate}** {ctx.plural('time(s)', cd.rate)} every **{humanize.precisedelta(cd.per)}**.\n"
+                    f"Type: {str(cd.type)}"
                 )
             )
 
