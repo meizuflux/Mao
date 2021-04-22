@@ -84,7 +84,7 @@ class HelpMenu(menus.Menu):
         await self._send_cog_help("Economy")
 
     @menus.button("\N{BLACK SQUARE FOR STOP}", position=menus.Last(2))
-    async def stop(self, payload):
+    async def stop(self, _):
         await self.message.delete()
         self.message = None
 
