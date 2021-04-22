@@ -110,9 +110,9 @@ class MaoHelp(commands.HelpCommand):
         destination = self.get_destination()
         await destination.send(embed=bot.embed(self.context, description=str(error)))
 
-    async def send_bot_help(self, data: Mapping[commands.Cog, List[Union[core.command, commands.Command]]]):
+    async def send_bot_help(self, mapping: Mapping[commands.Cog, List[Union[core.command, commands.Command]]]):
         items = {}
-        for cog, cmds in data.items():
+        for cog, cmds in mapping.items():
             if not hasattr(cog, 'help_name'):
                 continue
             if sum(not cmd.hidden for cmd in cmds) == 0:
