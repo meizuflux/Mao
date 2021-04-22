@@ -99,11 +99,10 @@ class MaoHelp(commands.HelpCommand):
         if self.verify_checks is False:
             return sorted(iterator, key=key) if sort else list(iterator)
 
-        ret = [cmd for cmd in iterator]
         if sort:
-            ret.sort(key=key)
+            iterator.sort(key=key)
 
-        return ret
+        return iterator
 
     async def send_error_message(self, error):
         bot = self.context.bot
