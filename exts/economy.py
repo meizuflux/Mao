@@ -186,7 +186,7 @@ class Economy(commands.Cog):
         file = discord.File(fp=image, filename="image.png")
         await ctx.send(file=file)
 
-    @core.command()
+    @core.command(cd=core.Cooldown(rate=300, guild=True))
     async def work(self, ctx: CustomContext):
         """Work for a little bit of money."""
         amount = random.randint(170, 567)
