@@ -10,7 +10,7 @@ class CustomContext(commands.Context):
         ]
         for item in mark:
             text = text.replace(item, f'\u200b{item}')
-        return
+        return text
 
     # https://github.com/InterStella0/stella_bot/blob/master/utils/useful.py#L199-L205
     def plural(self, text, size):
