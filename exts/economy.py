@@ -188,7 +188,7 @@ class Economy(commands.Cog):
 
     @core.command(cd=core.Cooldown(rate=300, guild=True))
     async def work(self, ctx: CustomContext):
-        """Work for a little bit of money."""
+        """Work for a little bit of money eh?"""
         amount = random.randint(170, 567)
         await self.bot.pool.update_user(ctx, method='wallet', amount=amount)
         await ctx.send(embed=self.bot.embed(ctx, description=messages.work_message(amount)))
