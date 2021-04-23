@@ -8,61 +8,109 @@ from .__init__ import Mao
 
 
 class Database(asyncpg.Pool):
-    async def fetch_user_stats(self, ctx: CustomContext, **kwargs):
-        items = kwargs.pop('items', ('cash', 'vault'))
-        conn = kwargs.pop('con', self)
-        user_id = kwargs.pop('user_id', ctx.author.id)
+    pass
 
-        query = "SELECT " + ", ".join(items) + " FROM users WHERE guild_id = $1 AND user_id = $2"
-        stats = await conn.fetchrow(query, ctx.guild.id, user_id)
-        if not stats:
-            message = "That user is not registered." if user_id != ctx.author.id else "You are not registered."
-            raise NotRegistered(message)
-        try:
-            if len(items) > 1:
-                return tuple(stats.get(item) for item in items)
-            return stats.get(items[0])
-        finally:
-            if kwargs.pop('release', False) and conn != self:
-                await self.release(conn)
 
-    async def update_user(self, ctx: CustomContext, method: str, value: int, **kwargs):
+class EconomyNode:
+    def __init__(self, db: 'Manager', bot: Mao):
+        self.bot: Mao = bot
+        self.pool: Manager = db
+        self.cache: dict = {}
+        self.bot.loop.create_task(self.prepare_cache())
+
+    async def prepare_cache(self) -> None:
+        await self.bot.wait_until_ready()
+        self.cache = {guild.id: {} for guild in self.bot.guilds}
+        user_data = await self.pool.fetch("SELECT * FROM users")
+        for user in user_data:
+            data = dict(user)
+            self.cache[data.pop('guild_id')].update({data.pop('user_id'): data})
+
+    async def do_release(self, conn, release):
+        if release and conn != self.pool:
+            await self.pool.release(conn)
+
+    def from_cache(self, guild_id, user_id) -> dict:
+        ret = self.cache.get(guild_id, {}).get(user_id, {})
+        return ret or None
+
+    async def get_user(self, ctx, user_id=None) -> dict:
+        user_id = user_id or ctx.author.id
+        if cached := self.from_cache(ctx.guild.id, user_id):
+            return cached
+
+        message = "That user is not registered." if user_id != ctx.author.id else "You are not registered."
+        raise NotRegistered(message)
+
+    async def edit_user(self, ctx: CustomContext, method: str, value: int, **kwargs) -> None:
         if method not in ('cash', 'vault', 'xp', 'level'):
-            raise TypeError("Invalid type provided.")
-        conn = kwargs.pop('con', self)
+            raise TypeError("Invalid method provided.")
+        conn = kwargs.pop('conn', self.pool)
         user_id = kwargs.pop('user_id', ctx.author.id)
-        query = f"""UPDATE users SET {method} = {method} + $1 
-                    WHERE guild_id = $2 AND user_id = $3"""
+
+        self.cache[ctx.guild.id][user_id][method] += value
+        query = f"UPDATE users SET {method} = {method} + $1 WHERE guild_id = $2 AND user_id = $3"
         await conn.execute(query, value, ctx.guild.id, user_id)
-        if kwargs.pop('release', False) and conn != self:
-            await self.release(conn)
 
-    async def update_pet(self, ctx: CustomContext, name: str, **kwargs):  # TODO add valid values
-        conn = kwargs.pop('con', self)
+        await self.do_release(conn, kwargs.pop('release', False))
+
+    async def edit_pet(self, ctx: CustomContext, name: str, **kwargs) -> None:  # TODO add valid values
+        conn = kwargs.pop('conn', self.pool)
         user_id = kwargs.pop('user_id', ctx.author.id)
-        query = """UPDATE users SET pet_name = $1 
-                    WHERE guild_id = $2 AND user_id = $3"""
+
+        self.cache[ctx.guild.id][user_id]['pet_name'] = name
+        query = "UPDATE users SET pet_name = $1 WHERE guild_id = $2 AND user_id = $3"
         await conn.execute(query, name, ctx.guild.id, user_id)
-        if kwargs.pop('release', False) and conn != self:
-            await self.release(conn)
 
-    async def withdraw(self, ctx: CustomContext, amount: int, **kwargs):
-        conn = kwargs.pop('con', self)
-        query = """UPDATE users SET cash = cash + $1, vault = vault - $1
-                    WHERE guild_id = $2 AND user_id = $3"""
+        await self.do_release(conn, kwargs.pop('release', False))
 
+    async def withdraw(self, ctx: CustomContext, amount: int, **kwargs) -> None:
+        conn = kwargs.pop('conn', self.pool)
+
+        self.cache[ctx.guild.id][ctx.author.id]['cash'] += amount
+        self.cache[ctx.guild.id][ctx.author.id]['vault'] -= amount
+
+        query = "UPDATE users SET cash = cash + $1, vault = vault - $1 WHERE guild_id = $2 AND user_id = $3"
         await conn.execute(query, amount, ctx.guild.id, ctx.author.id)
-        if kwargs.pop('release', False) and conn != self:
-            await self.release(conn)
 
-    async def deposit(self, ctx: CustomContext, amount: int, **kwargs):
-        conn = kwargs.pop('con', self)
-        query = """UPDATE users SET cash = cash - $1, vault = vault + $1
-                    WHERE guild_id = $2 AND user_id = $3"""
+        await self.do_release(conn, kwargs.pop('release', False))
 
+    async def deposit(self, ctx: CustomContext, amount: int, **kwargs) -> None:
+        conn = kwargs.pop('conn', self.pool)
+
+        self.cache[ctx.guild.id][ctx.author.id]['cash'] -= amount
+        self.cache[ctx.guild.id][ctx.author.id]['vault'] += amount
+
+        query = "UPDATE users SET cash = cash - $1, vault = vault + $1 WHERE guild_id = $2 AND user_id = $3"
         await conn.execute(query, amount, ctx.guild.id, ctx.author.id)
-        if kwargs.pop('release', False) and conn != self:
-            await self.release(conn)
+
+        await self.do_release(conn, kwargs.pop('release', False))
+
+    async def unregister_user(self, ctx: CustomContext) -> bool:
+        try:
+            del self.cache[ctx.guild.id][ctx.author.id]
+        except KeyError:
+            return False
+        else:
+            await self.pool.execute(
+                "DELETE FROM users WHERE guild_id = $1 AND user_id = $2",
+                ctx.guild.id, ctx.author.id
+            )
+            return True
+
+    async def register_user(self, ctx: CustomContext) -> bool:
+        if self.cache.get(ctx.guild.id, {}).get(ctx.author.id):
+            return False
+        defaults = {
+            'cash': 0,
+            'vault ': 500,
+            'pet_name': 'happy shiba',
+            'xp': 0,
+            'level': 1,
+        }
+        self.cache[ctx.guild.id][ctx.author.id] = defaults
+        await self.pool.execute("INSERT INTO users VALUES ($1, $2)", ctx.guild.id, ctx.author.id)
+        return True
 
 
 class Manager(asyncpg.Pool):
@@ -70,6 +118,7 @@ class Manager(asyncpg.Pool):
         self.bot = bot
         self.cache = {}
         self.bot.loop.create_task(self.prepare_cache())
+        self.economy = EconomyNode(self, self.bot)
         super().__init__(*args, **kwargs)
 
     async def prepare_cache(self):
@@ -88,7 +137,6 @@ class Manager(asyncpg.Pool):
 
     async def guild_cache(self):
         tables = {
-            'users': {},
             'guild_config': {}
         }
         cache = {guild.id: tables for guild in self.bot.guilds}
@@ -98,8 +146,6 @@ class Manager(asyncpg.Pool):
                 data = await conn.fetch(f"SELECT * FROM {table}")
                 for item in data:
                     item = dict(item)
-                    if table == 'users':
-                        cache[item.pop('guild_id')]['users'].update({item.pop('user_id'): item})
                     if table == 'guild_config':
                         cache[item.pop('guild_id')]['guild_config'] = item
 
@@ -107,80 +153,12 @@ class Manager(asyncpg.Pool):
 
         return cache
 
-    async def prep_shutdown(self):
-        ret = []
-        for g, _data in self.cache.items():
-            for u, data in _data['users'].items():
-                ret.append(tuple((g, u, data['cash'], data['vault'], data['pet_name'], data['xp'], data['level'])))
-        await self.executemany(
-            "UPDATE users SET cash = $3, vault = $4, pet_name = $5, xp = $6, level = $7 WHERE guild_id = $1 AND user_id = $2",
-            tuple(ret)
-        )
-
-    async def fetch_user_stats(self, ctx, **kwargs):
-        user_id = kwargs.pop('user_id', ctx.author.id)
-        if route := self.route(ctx, 'users', user_id):
-            return route
-        conn = kwargs.pop('conn', self)
-        items = kwargs.pop('items', '*')
-        query = "SELECT " + ", ".join(items) + " FROM users WHERE guild_id = $1 AND user_id = $2"
-        data = dict(await conn.fetchrow(query, ctx.guild.id, user_id))
-        try:
-            if not data:
-                message = "That user is not registered." if user_id != ctx.author.id else "You are not registered."
-                raise NotRegistered(message)
-            return data
-        finally:
-            await self.do_release(conn, kwargs.pop('release', False))
-
-    async def edit_user(self, ctx: CustomContext, method: str, value: int, **kwargs):
-        if method not in ('cash', 'vault', 'xp', 'level'):
-            raise TypeError("Invalid method provided.")
-        conn = kwargs.pop('conn', self)
-        user_id = kwargs.pop('user_id', ctx.author.id)
-        self.cache[ctx.guild.id]['users'][user_id][method] += value
-        query = f"""UPDATE users SET {method} = {method} + $1 
-                    WHERE guild_id = $2 AND user_id = $3"""
-        await conn.execute(query, value, ctx.guild.id, user_id)
-        await self.do_release(conn, kwargs.pop('release', False))
-
-    async def edit_pet(self, ctx: CustomContext, name: str, **kwargs):  # TODO add valid values
-        conn = kwargs.pop('conn', self)
-        user_id = kwargs.pop('user_id', ctx.author.id)
-        self.cache[ctx.guild.id]['users'][user_id]['pet_name'] = name
-        query = """UPDATE users SET pet_name = $1 
-                   WHERE guild_id = $2 AND user_id = $3"""
-        await conn.execute(query, name, ctx.guild.id, user_id)
-        await self.do_release(conn, kwargs.pop('release', False))
-
-    async def withdraw(self, ctx: CustomContext, amount: int, **kwargs):
-        self.cache[ctx.guild.id]['users'][ctx.author.id]['cash'] += amount
-        self.cache[ctx.guild.id]['users'][ctx.author.id]['vault'] -= amount
-        conn = kwargs.pop('conn', self)
-        query = """UPDATE users SET cash = cash + $1, vault = vault - $1
-                   WHERE guild_id = $2 AND user_id = $3"""
-        await conn.execute(query, amount, ctx.guild.id, ctx.author.id)
-        await self.do_release(conn, kwargs.pop('release', False))
-
-    async def deposit(self, ctx: CustomContext, amount: int, **kwargs):
-        self.cache[ctx.guild.id]['users'][ctx.author.id]['cash'] -= amount
-        self.cache[ctx.guild.id]['users'][ctx.author.id]['vault'] += amount
-        conn = kwargs.pop('conn', self)
-        query = """UPDATE users SET cash = cash - $1, vault = vault + $1
-                   WHERE guild_id = $2 AND user_id = $3"""
-        await conn.execute(query, amount, ctx.guild.id, ctx.author.id)
-        await self.do_release(conn, kwargs.pop('release', False))
-
     def route(self, ctx, *directions):
         ret = self.cache[ctx.guild.id]
         for place in directions:
             ret = ret.get(place, {})
 
         return ret or None
-
-    async def do_release(self, conn, to_release):
-        if to_release and conn != self:
-            await super().release(conn)
 
     async def set_cooldown(self, ctx: CustomContext, epoch: float, guild: bool):
         command = ctx.command.qualified_name
@@ -204,6 +182,7 @@ class Manager(asyncpg.Pool):
 
 
 def create_pool(
+        bot,
         dsn=None, *,
         min_size=10,
         max_size=10,
@@ -216,7 +195,8 @@ def create_pool(
         record_class=asyncpg.protocol.Record,
         **connect_kwargs
 ):
-    return Database(
+    return Manager(
+        bot,
         dsn,
         connection_class=connection_class,
         record_class=record_class,

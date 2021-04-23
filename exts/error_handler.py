@@ -22,8 +22,8 @@ class CommandErrorHandler(commands.Cog):
             commands.CommandOnCooldown,
             commands.DisabledCommand,
         )
-        #if await self.bot.is_owner(ctx.author) and isinstance(error, owner_errors):
-            #return await ctx.reinvoke()
+        if await self.bot.is_owner(ctx.author) and isinstance(error, owner_errors):
+            return await ctx.reinvoke()
 
         if not isinstance(error, (commands.CommandNotFound, commands.CommandOnCooldown)):
             ctx.command.reset_cooldown(ctx)

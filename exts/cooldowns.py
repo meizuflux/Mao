@@ -17,7 +17,7 @@ class CooldownManager(commands.Cog):
         if not ctx.command.cd:
             return
         epoch = time.time() + ctx.command.cd.rate
-        await self.bot.test_db.set_cooldown(ctx, epoch, ctx.command.cd.guild)
+        await self.bot.pool.set_cooldown(ctx, epoch, ctx.command.cd.guild)
 
 
 def setup(bot):

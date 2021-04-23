@@ -9,8 +9,7 @@ import discord
 import toml
 from discord.ext import commands, menus
 
-from core import Command
-from core import CustomCooldownBucket
+from core import Command, CustomCooldownBucket
 from utils.context import CustomContext
 from utils.db import *
 from utils.errors import NotRegistered
@@ -43,11 +42,8 @@ class Mao(commands.Bot):
 
         #   asyncio things
         self.loop = asyncio.get_event_loop()
-        self.pool: Database = self.loop.run_until_complete(
-            create_pool(dsn=self.settings['core']['postgres_dsn'], loop=self.loop)
-        )
-        self.test_db: Manager = self.loop.run_until_complete(
-            create_test_pool(bot=self, dsn=self.settings['core']['postgres_dsn'], loop=self.loop)
+        self.pool: Manager = self.loop.run_until_complete(
+            create_pool(bot=self, dsn=self.settings['core']['postgres_dsn'], loop=self.loop)
         )
         self.loop.create_task(self.__prep())
 
@@ -111,29 +107,26 @@ class Mao(commands.Bot):
             return
 
         ctx = await self.get_context(message)
-        if not isinstance(ctx.command, Command):
-            pass
-        else:
-            if not ctx.command.cd:
-                pass
-            else:
-                _type = 'guild' if ctx.command.cd.guild else 'user'
-                try:
-                    if _type == 'user':
-                        expires = self.test_db.cache['cooldowns'][_type][ctx.author.id][ctx.command.qualified_name]
-                    if _type == 'guild':
-                        expires = self.test_db.cache['cooldowns'][_type][ctx.guild.id][ctx.author.id][ctx.command.qualified_name]
-                    if expires > time.time():
-                        self.dispatch(
-                            'command_error',
-                            ctx,
-                            commands.CommandOnCooldown(CustomCooldownBucket(rate=1, per=ctx.command.cd.rate, type=_type),
+        if isinstance(ctx.command, Command) and ctx.command.cd:
+            _type = 'guild' if ctx.command.cd.guild else 'user'
+            try:
+                if _type == 'guild':
+                    expires = self.pool.cache['cooldowns'][_type][ctx.guild.id][ctx.author.id][
+                        ctx.command.qualified_name]
+                elif _type == 'user':
+                    expires = self.pool.cache['cooldowns'][_type][ctx.author.id][ctx.command.qualified_name]
+                if expires > time.time():
+                    self.dispatch(
+                        'command_error',
+                        ctx,
+                        commands.CommandOnCooldown(
+                            CustomCooldownBucket(rate=1, per=ctx.command.cd.rate, type=_type),
                             (datetime.utcfromtimestamp(expires) - datetime.utcnow()).seconds
                             )
-                        )
-                        return
-                except KeyError:
-                    pass
+                    )
+                    return
+            except KeyError:
+                pass
         await self.invoke(ctx)
 
     def run(self, *args, **kwargs):

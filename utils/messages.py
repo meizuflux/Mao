@@ -2,7 +2,7 @@ from secrets import choice
 
 fmt = "**${}**"
 _work = (
-    'You hand paint to an artist and gain {}',
+    'You paint with an artist and gain {}',
     'You help a beaver build his dam and he pays you {}',
     'You hold a ladder for an artist and he rewards you with {}',
     'You are given {} for mowing a lawn.',

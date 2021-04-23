@@ -4,7 +4,6 @@ import random
 from dataclasses import dataclass
 
 import discord
-from asyncpg import UniqueViolationError
 from discord.ext import commands, tasks
 
 import core
@@ -30,6 +29,8 @@ class Economy(commands.Cog):
         self.bulk_insert_task.start()
         self._cooldown = commands.CooldownMapping.from_cooldown(2, 5, commands.BucketType.member)
 
+        self.economy = self.bot.pool.economy
+
     def cog_unload(self):
         self.bulk_insert_task.stop()
 
@@ -52,6 +53,7 @@ class Economy(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
+        await self.bot.wait_until_ready()
         if message.author.bot:
             return
         if message.guild.id in self.bot.cache['guilds']['non_leveling']:
@@ -62,11 +64,13 @@ class Economy(commands.Cog):
         retry_after = bucket.update_rate_limit()
         if retry_after:
             return
+        xp = random.randint(15, 56)
+        self.economy.cache[message.guild.id][message.author.id]['xp'] += xp
         self._data_batch.append(
             {
                 'guild': message.guild.id,
                 'user': message.author.id,
-                'xp': random.randint(15, 56)
+                'xp': xp
             }
         )
 
@@ -83,7 +87,7 @@ class Economy(commands.Cog):
     @commands.guild_only()
     async def toggle_leveling(self, ctx: CustomContext):
         """Enables/disables leveling on this server."""
-        enabled = await self.bot.pool.fetchval("SELECT leveling FROM guild_config WHERE guild_id = $1", ctx.guild.id)
+        enabled = ctx.guild.id in self.bot.cache['guilds']['non_leveling']
         leveling, msg = not enabled, "Enabled" if not enabled else "Disabled"
         query = (
             """
@@ -93,7 +97,7 @@ class Economy(commands.Cog):
         )
         await self.bot.pool.execute(query, ctx.guild.id, leveling)
         await ctx.send(f"{msg} leveling on {ctx.guild.name}.")
-        method = getattr(self.bot.non_leveling_guilds, "remove" if leveling else "add")
+        method = getattr(self.bot.cache['guilds']['non_leveling'], "remove" if leveling else "add")
         method(ctx.guild.id)
 
     @core.command(
@@ -102,10 +106,8 @@ class Economy(commands.Cog):
     async def register(self, ctx: CustomContext):
         """Registers you into the user database.
         You can unregister with `{prefix}unregister`"""
-        query = "INSERT INTO users (guild_id, user_id) VALUES ($1, $2);"
-        try:
-            await self.bot.pool.execute(query, ctx.guild.id, ctx.author.id)
-        except UniqueViolationError:
+        worked = await self.economy.register_user(ctx)
+        if not worked:
             return await ctx.send("You are already registered!")
         self.bot.cache['registered_users'].add(ctx.author.id)
         await ctx.send("Registered you into the database.")
@@ -119,16 +121,17 @@ class Economy(commands.Cog):
     async def balance(self, ctx: CustomContext, user: discord.User = None):
         """View yours or someone else's balance."""
         user = user or ctx.author
-        items = ('cash', 'vault', 'pet_name', 'xp', 'level')
-        cash, vault, pet, xp, level = await self.bot.pool.fetch_user_stats(ctx, user_id=user.id, items=items)
-        total_xp = xp
+        data = await self.economy.get_user(ctx, user_id=user.id)
+        level = data['level']
+        total_xp = data['xp'] - 1000
         for num in range(level + 1):
             total_xp += num * 1000
+
         message = (
-            f"💸 **Cash** → {cash}",
-            f"💰 **Vault** → {vault}",
-            f"🐊 **Pet** → {pet.title()}",
-            f"<:feyes:819694934209855488> **XP** → {xp} ({total_xp - 1000} total)",
+            f"💸 **Cash** → {data['vault']}",
+            f"💰 **Vault** → {data['vault']}",
+            f"🐊 **Pet** → {data['pet_name'].title()}",
+            f"<:feyes:819694934209855488> **XP** → {data['xp']} ({total_xp} total)",
             f"🥗 **Level** → {level}"
         )
         embed = self.bot.embed(ctx, author=False, title=f"{user.name}'s balance", description="\n".join(message))
@@ -144,10 +147,10 @@ class Economy(commands.Cog):
         """Levels you up to the next level."""
         if ctx.guild.id in self.bot.non_leveling_guilds:
             return await ctx.send("Leveling isn't enabled on your server.")
-        xp, level = await self.bot.pool.fetch_user_stats(ctx, items=('xp', 'level'))
-
+        data = await self.economy.get_user(ctx)
+        level = data['level']
         cost = level * 1000
-        xp_needed = max((level * 1000) - xp, 0)
+        xp_needed = max((level * 1000) - data['xp'], 0)
 
         if xp_needed != 0:
             return await ctx.send(f"You need {xp_needed} more XP in order to level up to level {level + 1}")
@@ -158,7 +161,7 @@ class Economy(commands.Cog):
             WHERE guild_id = $1 AND user_id = $2
             """
         )
-        await self.bot.pool.execute(query, ctx.guild.id, ctx.author.id, xp - cost)
+        await self.bot.pool.execute(query, ctx.guild.id, ctx.author.id, data['xp'] - cost)
         await ctx.send(f"Leveled you up to level {level + 1}!")
 
     @core.command(
@@ -173,12 +176,12 @@ class Economy(commands.Cog):
         if ctx.guild.id in self.bot.non_leveling_guilds:
             return await ctx.send("Leveling isn't enabled on your server.")
         user = user or ctx.author
-        xp, level = await self.bot.pool.fetch_user_stats(ctx, user_id=user.id, items=('xp', 'level'))
+        data = await self.economy.get_user(ctx, user_id=user.id)
         kwargs = {
             'profile_image': user.avatar_url_as(format="png"),
-            'level': level,
-            'user_xp': xp,
-            'next_xp': level * 1000,
+            'level': data['level'],
+            'user_xp': data['xp'],
+            'next_xp': data['level'] * 1000,
             'user_name': str(user),
         }
         generator = functools.partial(Generator().generate_profile, **kwargs)
@@ -190,7 +193,7 @@ class Economy(commands.Cog):
     async def work(self, ctx: CustomContext):
         """Work for a little bit of money eh?"""
         amount = random.randint(170, 567)
-        await self.bot.pool.update_user(ctx, method='wallet', amount=amount)
+        await self.economy.edit_user(ctx, method='cash', value=amount)
         await ctx.send(embed=self.bot.embed(ctx, description=messages.work_message(amount)))
 
     @core.command(
@@ -198,11 +201,11 @@ class Economy(commands.Cog):
         examples=('half', '56%', '18', 'all')
     )
     async def withdraw(self, ctx: CustomContext, amount: str):
-        "Withdraw money from your vault."
+        """Withdraw money from your vault."""
         async with self.bot.pool.acquire() as conn:
-            vault = await self.bot.pool.fetch_user_stats(ctx, items=('vault',), con=conn)
-            amount = parse_number(argument=amount, total=vault)
-            await self.bot.pool.withdraw(ctx, amount=amount, con=conn, release=True)
+            data = await self.economy.get_user(ctx)
+            amount = parse_number(argument=amount, total=data['vault'])
+            await self.economy.withdraw(ctx, amount=amount, conn=conn, release=True)
         await ctx.send(embed=self.bot.embed(ctx, description=f"You withdraw **${amount}** from your vault."))
 
     @core.command(
@@ -212,9 +215,9 @@ class Economy(commands.Cog):
     async def deposit(self, ctx: CustomContext, amount: str):
         """Withdraw money from your vault."""
         async with self.bot.pool.acquire() as conn:
-            cash = await self.bot.pool.fetch_user_stats(ctx, items=('cash',), con=conn)
-            amount = parse_number(argument=amount, total=cash)
-            await self.bot.pool.deposit(ctx, amount=amount, con=conn, release=True)
+            data = await self.economy.get_user(ctx)
+            amount = parse_number(argument=amount, total=data['cash'])
+            await self.economy.deposit(ctx, amount=amount, conn=conn, release=True)
         await ctx.send(embed=self.bot.embed(ctx, description=f"You deposit **${amount}** to your vault."))
 
     @core.command(
@@ -222,11 +225,16 @@ class Economy(commands.Cog):
     )
     async def daily(self, ctx: CustomContext):
         """Collect money daily."""
-        async with self.bot.test_db.acquire() as conn:
-            data = await self.bot.test_db.fetch_user_stats(ctx, items=('level',), conn=conn)
-            boost = data['level'] * 0.05
-            await self.bot.test_db.edit_user(ctx, 'cash', int(500 * (boost + 1)), conn=conn, release=True)
-        await ctx.send(embed=self.bot.embed(ctx, desciption=f"You collect **$500**. Because you are level {data['level']}, you earn an extra **${int(500 * boost)}**"))
+        async with self.bot.pool.acquire() as conn:
+            data = await self.economy.get_user(ctx)
+            boost = data['level'] * 0.02
+            await self.economy.edit_user(ctx, 'cash', int(500 * (boost + 1)), conn=conn, release=True)
+        embed = self.bot.embed(
+            ctx,
+            description=f"You collect **$500**. "
+                        f"Because you are level {data['level']}, you earn an extra **${int(500 * boost)}**"
+        )
+        await ctx.send(embed=embed)
 
 
 def setup(bot):
