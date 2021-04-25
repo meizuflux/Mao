@@ -66,10 +66,6 @@ class EconomyNode:
             data = dict(user)
             self.cache[data.pop('guild_id')].update({data.pop('user_id'): data})
 
-    async def do_release(self, conn, release):
-        if release and conn != self.pool:
-            await self.pool.release(conn)
-
     def from_cache(self, guild_id, user_id) -> dict:
         ret = self.cache.get(guild_id, {}).get(user_id, {})
         return ret or None
@@ -92,8 +88,6 @@ class EconomyNode:
         query = f"UPDATE users SET {method} = {method} + $1 WHERE guild_id = $2 AND user_id = $3"
         await conn.execute(query, value, ctx.guild.id, user_id)
 
-        await self.do_release(conn, kwargs.pop('release', False))
-
     async def edit_pet(self, ctx: CustomContext, name: str, **kwargs) -> None:  # TODO add valid values
         conn = kwargs.pop('conn', self.pool)
         user_id = kwargs.pop('user_id', ctx.author.id)
@@ -101,8 +95,6 @@ class EconomyNode:
         self.cache[ctx.guild.id][user_id]['pet_name'] = name
         query = "UPDATE users SET pet_name = $1 WHERE guild_id = $2 AND user_id = $3"
         await conn.execute(query, name, ctx.guild.id, user_id)
-
-        await self.do_release(conn, kwargs.pop('release', False))
 
     async def withdraw(self, ctx: CustomContext, amount: int, **kwargs) -> None:
         conn = kwargs.pop('conn', self.pool)
@@ -113,8 +105,6 @@ class EconomyNode:
         query = "UPDATE users SET cash = cash + $1, vault = vault - $1 WHERE guild_id = $2 AND user_id = $3"
         await conn.execute(query, amount, ctx.guild.id, ctx.author.id)
 
-        await self.do_release(conn, kwargs.pop('release', False))
-
     async def deposit(self, ctx: CustomContext, amount: int, **kwargs) -> None:
         conn = kwargs.pop('conn', self.pool)
 
@@ -123,8 +113,6 @@ class EconomyNode:
 
         query = "UPDATE users SET cash = cash - $1, vault = vault + $1 WHERE guild_id = $2 AND user_id = $3"
         await conn.execute(query, amount, ctx.guild.id, ctx.author.id)
-
-        await self.do_release(conn, kwargs.pop('release', False))
 
     async def unregister_user(self, ctx: CustomContext) -> bool:
         try:
@@ -190,8 +178,6 @@ class Manager(asyncpg.Pool):
                     if table == 'guild_config':
                         cache[item.pop('guild_id')]['guild_config'] = item
 
-            await self.release(conn)
-
         return cache
 
     def route(self, ctx, *directions):
@@ -223,36 +209,6 @@ class Manager(asyncpg.Pool):
 
 
 def create_pool(
-        bot,
-        dsn=None, *,
-        min_size=10,
-        max_size=10,
-        max_queries=50000,
-        max_inactive_connection_lifetime=300.0,
-        setup=None,
-        init=None,
-        loop=None,
-        connection_class=asyncpg.connection.Connection,
-        record_class=asyncpg.protocol.Record,
-        **connect_kwargs
-):
-    return Manager(
-        bot,
-        dsn,
-        connection_class=connection_class,
-        record_class=record_class,
-        min_size=min_size,
-        max_size=max_size,
-        max_queries=max_queries,
-        loop=loop,
-        setup=setup,
-        init=init,
-        max_inactive_connection_lifetime=max_inactive_connection_lifetime,
-        **connect_kwargs
-    )
-
-
-def create_test_pool(
         bot,
         dsn=None, *,
         min_size=10,
