@@ -8,7 +8,7 @@ from tabulate import tabulate
 import core
 from utils import CustomContext, Mao
 
-DEFAULT_MESSAGE = 'Welcome ${member.name} to ${server}! You are member ${server.member_count}.'
+DEFAULT_MESSAGE = '${member.mention}, welcome to **${server}**! You are member **#${server.member_count}**.'
 
 
 class BoolConverter(commands.Converter):
