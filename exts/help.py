@@ -94,7 +94,7 @@ class MaoHelp(commands.HelpCommand):
         if sort and key is None:
             key = lambda c: c.name
 
-        iterator = cmds if self.show_hidden else filter(lambda c: not c.hidden, cmds)
+        iterator = cmds if self.show_hidden else list(filter(lambda c: not c.hidden, cmds))
 
         if self.verify_checks is False:
             return sorted(iterator, key=key) if sort else list(iterator)

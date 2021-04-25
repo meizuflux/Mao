@@ -3,9 +3,9 @@ CREATE TABLE IF NOT EXISTS guilds (
 );
 
 CREATE TABLE IF NOT EXISTS guild_config (
-    guild_id BIGINT REFERENCES guilds ON DELETE CASCADE,
+    guild_id BIGINT PRIMARY KEY REFERENCES guilds ON DELETE CASCADE,
     leveling BOOLEAN DEFAULT True,
-    PRIMARY KEY (guild_id)
+    welcoming BOOLEAN DEFAULT False
 );
 
 CREATE TABLE IF NOT EXISTS users (
@@ -24,4 +24,12 @@ CREATE TABLE IF NOT EXISTS cooldowns (
     user_id BIGINT,
     command TEXT,
     expires DOUBLE PRECISION
-)
+);
+
+CREATE TABLE IF NOT EXISTS welcome (
+    guild_id BIGINT PRIMARY KEY REFERENCES guilds ON DELETE CASCADE NOT NULL,
+    embed BOOLEAN DEFAULT False,
+    dm BOOLEAN DEFAULT False,
+    channel_id BIGINT,
+    message VARCHAR NOT NULL
+);

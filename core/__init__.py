@@ -1,4 +1,3 @@
-from collections import namedtuple
 from dataclasses import dataclass
 
 from discord.ext import commands
@@ -43,7 +42,10 @@ def group(name=None, **attrs):
 class CustomCooldownBucket:
     rate: int
     per: int
-    type: namedtuple
+    type: str
+
+    def __str__(self):
+        return str(self.type)
 
 
 @dataclass

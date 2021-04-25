@@ -1,6 +1,6 @@
 import time
 
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from core import Command
 from utils import CustomContext, Mao
@@ -9,6 +9,14 @@ from utils import CustomContext, Mao
 class CooldownManager(commands.Cog):
     def __init__(self, bot):
         self.bot: Mao = bot
+        self.destroy_expired_cooldowns.start()
+
+    def cog_unload(self):
+        self.destroy_expired_cooldowns.stop()
+
+    @tasks.loop(hours=1)
+    async def destroy_expired_cooldowns(self):
+        await self.bot.pool.execute("DELETE FROM cooldowns WHERE expires < $1", time.time())
 
     @commands.Cog.listener()
     async def on_command_completion(self, ctx: CustomContext):

@@ -1,3 +1,5 @@
+import json
+import typing
 from collections import defaultdict
 
 import asyncpg
@@ -11,14 +13,52 @@ class Database(asyncpg.Pool):
     pass
 
 
+class WelcomeNode:
+    def __init__(self, db: 'Manager', bot: Mao):
+        self.bot: Mao = bot
+        self.pool: Manager = db
+        self.cache: dict = {}
+        self.bot.loop.create_task(self._prepare_cache())
+
+    async def _prepare_cache(self) -> None:
+        await self.bot.wait_until_ready()
+        self.cache = {guild.id: {} for guild in self.bot.guilds}
+        welcome_data = await self.pool.fetch("SELECT * FROM welcome")
+        for guild in welcome_data:
+            data = dict(guild)
+            self.cache.update({data.pop('guild_id'): data})
+
+    async def first_insert(self, data: dict) -> None:
+        query = """INSERT INTO welcome (guild_id, embed, dm, channel_id, message)
+                   SELECT x.guild_id, x.embed, x.dm, x.channel_id, x.message
+                   FROM jsonb_to_record($1) AS
+                   x(guild_id BIGINT, embed BOOLEAN, dm BOOLEAN, channel_id BIGINT, message VARCHAR)
+                   """
+        async with self.pool.acquire() as conn:
+            await conn.execute(query, str(json.dumps(data)))
+            await conn.execute("UPDATE guild_config SET welcoming = True WHERE guild_id = $1", data['guild_id'])
+
+        self.bot.cache['guilds']['welcoming'].add(data['guild_id'])
+        self.cache.update({data.pop('guild_id'): data})
+
+    async def edit_value(self, ctx: CustomContext, method: str, new: typing.Union[bool, int, str]) -> None:
+        query = f"UPDATE welcome SET {method} = $1 WHERE guild_id = $2"
+        await self.pool.execute(query, new, ctx.guild.id)
+        self.cache[ctx.guild.id][method] = new
+
+    async def remove_guild(self, guild_id: int):
+        del self.cache[guild_id]
+        await self.pool.execute("DELETE FROM welcome WHERE guild_id = $1", guild_id)
+
+
 class EconomyNode:
     def __init__(self, db: 'Manager', bot: Mao):
         self.bot: Mao = bot
         self.pool: Manager = db
         self.cache: dict = {}
-        self.bot.loop.create_task(self.prepare_cache())
+        self.bot.loop.create_task(self._prepare_cache())
 
-    async def prepare_cache(self) -> None:
+    async def _prepare_cache(self) -> None:
         await self.bot.wait_until_ready()
         self.cache = {guild.id: {} for guild in self.bot.guilds}
         user_data = await self.pool.fetch("SELECT * FROM users")
@@ -119,6 +159,7 @@ class Manager(asyncpg.Pool):
         self.cache = {}
         self.bot.loop.create_task(self.prepare_cache())
         self.economy = EconomyNode(self, self.bot)
+        self.welcome = WelcomeNode(self, self.bot)
         super().__init__(*args, **kwargs)
 
     async def prepare_cache(self):

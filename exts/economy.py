@@ -1,6 +1,9 @@
 import functools
 import logging
+import math
 import random
+import shlex
+import typing
 from dataclasses import dataclass
 
 import discord
@@ -8,7 +11,7 @@ from discord.ext import commands, tasks
 
 import core
 from rank_card import Generator
-from utils import CustomContext, Mao, messages, parse_number
+from utils import Arguments, CustomContext, Mao, messages, parse_number
 
 log = logging.getLogger("Economy")
 
@@ -32,6 +35,7 @@ class Economy(commands.Cog):
         self.economy = self.bot.pool.economy
 
     def cog_unload(self):
+        self.bot.loop.create_task(self.bulk_insert_task)
         self.bulk_insert_task.stop()
 
     async def bulk_insert(self):
@@ -128,7 +132,7 @@ class Economy(commands.Cog):
             total_xp += num * 1000
 
         message = (
-            f"💸 **Cash** → {data['vault']}",
+            f"💸 **Cash** → {data['cash']}",
             f"💰 **Vault** → {data['vault']}",
             f"🐊 **Pet** → {data['pet_name'].title()}",
             f"<:feyes:819694934209855488> **XP** → {data['xp']} ({total_xp} total)",
@@ -234,6 +238,86 @@ class Economy(commands.Cog):
             description=f"You collect **$500**. "
                         f"Because you are level {data['level']}, you earn an extra **${int(500 * boost)}**"
         )
+        await ctx.send(embed=embed)
+
+    @core.command(
+        aliases=('lb', 'top', 'highest'),
+        examples=(
+                '1 --cash',
+                '--vault',
+                '5',
+        ),
+        usage="[page=1] [--cash | --vault | --level]",
+        cd=core.Cooldown(5, False)
+    )
+    async def leaderboard(self, ctx: CustomContext, page: typing.Optional[int] = 1, flags: str = None):
+        queries = {
+            'count': "SELECT COUNT(user_id) FROM users",
+            'total': {
+                'query': "SELECT user_id, cash + vault AS total FROM users WHERE guild_id = $1 ORDER BY cash + vault     DESC OFFSET $2 LIMIT 10",
+                'line': "**{num}.** **{name}** » **${total}**"
+            },
+            'cash': {
+                'query': "SELECT user_id, cash AS total FROM users WHERE guild_id = $1 ORDER BY cash DESC OFFSET $2 LIMIT 10",
+                'line': "**{num}.** **{name}** » **${total}**"
+            },
+            'vault': {
+                'query': "SELECT user_id, vault AS total FROM users WHERE guild_id = $1 ORDER BY vault DESC OFFSET $2 LIMIT 10",
+                'line': "**{num}.** **{name}** » **${total}**"
+            },
+            'xp': {
+                'query': "SELECT user_id, level, xp FROM users WHERE guild_id = $1 ORDER BY level DESC OFFSET $2 LIMIT 10",
+                'line': "**{num}.** **{name}** » Level: **{level}** Total XP: **{total_xp}**"
+            }
+        }
+        flag = 'total'
+        if flags:
+            parser = Arguments(allow_abbrev=False, add_help=False)
+            parser.add_argument("-c", "-cash", "--cash", action="store_true", default=False)
+            parser.add_argument("-v", "-vault", "--vault", action="store_true", default=False)
+            parser.add_argument("-level", "-xp", "--level", "--xp", action="store_true", default=False)
+            try:
+                args = parser.parse_args(shlex.split(flags))
+            except RuntimeError as e:
+                return await ctx.send(embed=self.bot.embed(ctx, description=str(e)))
+
+            if args.cash:
+                flag = 'cash'
+            if args.vault:
+                flag = 'vault'
+            if args.level:
+                flag = 'xp'
+        query = queries[flag]['query']
+        line_type = queries[flag]['line']
+
+        async with self.bot.pool.acquire() as conn:
+            count = await conn.fetchval(queries['count'])
+
+            max_pages = math.ceil(count / 10)
+            page = min(page, max_pages)
+
+            data = await conn.fetch(query, ctx.guild.id, (page * 10) - 10)
+
+        lines = []
+        for num, user in enumerate(data, start=1):
+            kwargs = {
+                'num': num,
+                'name': discord.utils.escape_markdown(str(await self.bot.try_user(user['user_id']))),
+                'total_xp': None,
+                'level': None,
+                'total': None
+            }
+            if flag == 'xp':
+                kwargs['level'] = user['level']
+                kwargs['total_xp'] = user['xp'] - 1000
+                for num in range(user['level'] + 1):
+                    kwargs['total_xp'] += num * 1000
+            if flag in ('cash', 'vault', 'total'):
+                kwargs['total'] = user['total']
+            lines.append(line_type.format_map(kwargs))
+        lines.append(f"\nPage {page}/{max_pages}")
+
+        embed = self.bot.embed(ctx, title=f"{ctx.guild.name} Leaderboard", description="\n".join(lines))
         await ctx.send(embed=embed)
 
 

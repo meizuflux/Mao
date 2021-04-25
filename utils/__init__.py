@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import logging
 import os
@@ -51,7 +52,8 @@ class Mao(commands.Bot):
         self.cache = {
             'registered_users': set(),
             'guilds': {
-                'non_leveling': set()
+                'non_leveling': set(),
+                'welcoming': set()
             }
         }
         self.non_leveling_guilds: set = set()
@@ -87,8 +89,12 @@ class Mao(commands.Bot):
                 tuple((g.id,) for g in self.guilds)
             )
 
-            leveling = await conn.fetch("SELECT guild_id FROM guild_config WHERE leveling = False")
-            self.cache['guilds']['non_leveling'] = {guild['guild_id'] for guild in leveling}
+            guilds = await conn.fetch("SELECT * FROM guild_config")
+            for g in guilds:
+                if not g['leveling']:
+                    self.cache['guilds']['non_leveling'].add(g['guild_id'])
+                if g['welcoming']:
+                    self.cache['guilds']['welcoming'].add(g['guild_id'])
 
             logger.info("Finished prep")
 
@@ -100,6 +106,8 @@ class Mao(commands.Bot):
         return await super().get_context(message, cls=cls or self.context)
 
     async def process_commands(self, message: discord.Message):
+        if message.author.bot:
+            return
         await self.wait_until_ready()
         bucket = self._cd.get_bucket(message)
         retry_after = bucket.update_rate_limit()
@@ -122,7 +130,7 @@ class Mao(commands.Bot):
                         commands.CommandOnCooldown(
                             CustomCooldownBucket(rate=1, per=ctx.command.cd.rate, type=_type),
                             (datetime.utcfromtimestamp(expires) - datetime.utcnow()).seconds
-                            )
+                        )
                     )
                     return
             except KeyError:
@@ -153,6 +161,13 @@ class Mao(commands.Bot):
             if author:
                 embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
         return embed
+
+    async def try_user(self, user_id: int) -> discord.User:
+        """Method to try and fetch a user from cache then fetch from API."""
+        user = self.get_user(user_id)
+        if not user:
+            user = await self.fetch_user(user_id)
+        return user
 
 
 class MaoPages(menus.MenuPages):
@@ -236,3 +251,8 @@ class plural:
         for x, y in target:
             text = text.replace(x, y[logic])
         return text
+
+
+class Arguments(argparse.ArgumentParser):
+    def error(self, message):
+        raise RuntimeError(message)
