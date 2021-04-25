@@ -31,5 +31,6 @@ CREATE TABLE IF NOT EXISTS welcome (
     embed BOOLEAN DEFAULT False,
     dm BOOLEAN DEFAULT False,
     channel_id BIGINT,
+    role_id BIGINT,
     message VARCHAR NOT NULL
 );

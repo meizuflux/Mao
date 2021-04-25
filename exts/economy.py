@@ -209,7 +209,7 @@ class Economy(commands.Cog):
         async with self.bot.pool.acquire() as conn:
             data = await self.economy.get_user(ctx)
             amount = parse_number(argument=amount, total=data['vault'])
-            await self.economy.withdraw(ctx, amount=amount, conn=conn, release=True)
+            await self.economy.withdraw(ctx, amount=amount, conn=conn)
         await ctx.send(embed=self.bot.embed(ctx, description=f"You withdraw **${amount}** from your vault."))
 
     @core.command(
@@ -221,7 +221,7 @@ class Economy(commands.Cog):
         async with self.bot.pool.acquire() as conn:
             data = await self.economy.get_user(ctx)
             amount = parse_number(argument=amount, total=data['cash'])
-            await self.economy.deposit(ctx, amount=amount, conn=conn, release=True)
+            await self.economy.deposit(ctx, amount=amount, conn=conn)
         await ctx.send(embed=self.bot.embed(ctx, description=f"You deposit **${amount}** to your vault."))
 
     @core.command(
@@ -229,10 +229,9 @@ class Economy(commands.Cog):
     )
     async def daily(self, ctx: CustomContext):
         """Collect money daily."""
-        async with self.bot.pool.acquire() as conn:
-            data = await self.economy.get_user(ctx)
-            boost = data['level'] * 0.02
-            await self.economy.edit_user(ctx, 'cash', int(500 * (boost + 1)), conn=conn, release=True)
+        data = await self.economy.get_user(ctx)
+        boost = data['level'] * 0.02
+        await self.economy.edit_user(ctx, 'cash', int(500 * (boost + 1)))
         embed = self.bot.embed(
             ctx,
             description=f"You collect **$500**. "

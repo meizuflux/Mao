@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 
 import discord
 from discord.ext import commands
@@ -20,10 +21,59 @@ class BoolConverter(commands.Converter):
         return 'unknown'
 
 
+class RoleConverter(commands.Converter):
+    async def convert(self, ctx, argument):
+        try:
+            role_converter = commands.RoleConverter()
+            role = await role_converter.convert(ctx, argument)
+        except commands.RoleNotFound:
+            role = discord.utils.find(
+                lambda r: r.name.lower().startswith(argument),
+                ctx.guild.roles
+            )
+
+        return role
+
+
 class Welcoming(commands.Cog):
     def __init__(self, bot: Mao):
         self.bot: Mao = bot
         self.welcome = self.bot.pool.welcome
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member: discord.Member):
+        if member.guild.id == 336642139381301249:
+            return
+        if member.guild.id not in self.bot.cache['guilds']['welcoming']:
+            return
+        data = self.welcome.from_cache(member.guild.id)
+        if not data:
+            return
+        env = self.env(member=member, guild=member.guild)
+        message = data['message']
+        for var, value in env.items():
+            message = message.replace('${' + var + '}', str(value))
+        destination: discord.abc.Messageable = None
+        if channel_id := data['channel_id']:
+            destination = self.bot.get_channel(channel_id)
+        if data['dm']:
+            destination = member
+        kwargs = {}
+        if data['embed']:
+            embed = self.bot.embed(description=message, timestamp=datetime.utcnow())
+            embed.set_author(name=member.display_name, url=member.avatar_url)
+            kwargs['embed'] = embed
+        else:
+            kwargs['content'] = message
+        try:
+            await destination.send(**kwargs)
+        except discord.Forbidden:
+            if channel_id:
+                await self.bot.get_channel(channel_id).send(**kwargs)
+        if role_id := data['role_id']:
+            if member.guild.me.guild_permissions.manage_roles:
+                role = member.guild.get_role(role_id)
+                await member.add_roles(role, reason='Auto assign role on member join.')
 
     @staticmethod
     def env(member: discord.Member, guild: discord.Guild, what_to_get: str = 'values'):
@@ -98,6 +148,14 @@ class Welcoming(commands.Cog):
             message = message.replace('${' + var + '}', str(value))
         await ctx.send(message)
 
+    @core.command(
+        aliases=('test-welcome',)
+    )
+    @commands.guild_only()
+    @commands.has_permissions(manage_guild=True)
+    async def test_welcome(self, ctx: CustomContext):
+        self.bot.dispatch('member_join', ctx.author)
+
     @core.command()
     @commands.guild_only()
     async def values(self, ctx: CustomContext):
@@ -138,6 +196,7 @@ class Welcoming(commands.Cog):
             'embed': None,
             'dm': None,
             'channel_id': None,
+            'role_id': None,
             'message': None
         }
 
@@ -145,10 +204,10 @@ class Welcoming(commands.Cog):
                                description=(
                                    'This will guide you through the process for setting up welcome messages on your server.\n'
                                    'Type `start` to begin the setup process, or type `cancel` to abandon the process.\n'
-                                   'Failing to answer any question within 60 seconds will cancel the process.'
+                                   'Failing to answer any question within 120 seconds will cancel the process.'
                                ))
-        timeout = 60
-        embed.set_footer(text='You have 60 seconds to answer each question.')
+        timeout = 120
+        embed.set_footer(text='You have 120 seconds to answer each question.')
         message = await ctx.send(embed=embed)
 
         async def cancel():
@@ -203,15 +262,27 @@ class Welcoming(commands.Cog):
                 if start.content.lower() == 'cancel':
                     return await cancel()
                 try:
-                    channel: discord.TextChannel = await commands.TextChannelConverter().convert(ctx, channel_message.content)
+                    channel: discord.TextChannel = await commands.TextChannelConverter().convert(ctx,
+                                                                                                 channel_message.content)
                 except commands.ChannelNotFound:
                     await message.delete()
                     return await ctx.send('I was unable to discern a channel from your response.')
                 data['channel_id'] = channel.id
 
+            embed.description = 'Please send the role you would like to add to the user when they join. If you do not want to add a role, please send `None`.'
+            await message.edit(embed=embed)
+            role_message = await self.bot.wait_for('message', timeout=timeout, check=check)
+            if role_message.content.lower() != 'none':
+                converted_role = await RoleConverter().convert(ctx, role_message.content)
+                if not converted_role:
+                    await message.delete()
+                    return await ctx.send('I was unable to discern a role from your response.')
+                data['role_id'] = converted_role.id
+
         except asyncio.TimeoutError:
             await message.delete()
-            await ctx.send(f'You failed to answer one of the questions within 60 seconds, so I cancelled the process.')
+            await ctx.send(
+                f'You failed to answer one of the questions within 120 seconds, so I cancelled the setup process.')
         else:
             msg = (
                 'Setup process has been completed. Here are the values you provided:\n'
@@ -221,7 +292,9 @@ class Welcoming(commands.Cog):
                 f"`Send in an embed:` `{'yes' if data['embed'] else 'no'}`\n"
             )
             if data['channel_id']:
-                msg += f"`Channel ID to send to:` `{data['channel_id']}`"
+                msg += f"`Channel ID to send to:` `{data['channel_id']}`\n"
+            if data['role_id']:
+                msg += f"`Role to add:` `{data['role_id']}`"
             await ctx.send(msg)
             await self.welcome.first_insert(data)
 

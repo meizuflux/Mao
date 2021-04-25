@@ -29,10 +29,10 @@ class WelcomeNode:
             self.cache.update({data.pop('guild_id'): data})
 
     async def first_insert(self, data: dict) -> None:
-        query = """INSERT INTO welcome (guild_id, embed, dm, channel_id, message)
-                   SELECT x.guild_id, x.embed, x.dm, x.channel_id, x.message
+        query = """INSERT INTO welcome (guild_id, embed, dm, channel_id, role_id, message)
+                   SELECT x.guild_id, x.embed, x.dm, x.channel_id, x.role_id, x.message
                    FROM jsonb_to_record($1) AS
-                   x(guild_id BIGINT, embed BOOLEAN, dm BOOLEAN, channel_id BIGINT, message VARCHAR)
+                   x(guild_id BIGINT, embed BOOLEAN, dm BOOLEAN, channel_id BIGINT, role_id BIGINT, message VARCHAR)
                    """
         async with self.pool.acquire() as conn:
             await conn.execute(query, str(json.dumps(data)))
@@ -49,6 +49,9 @@ class WelcomeNode:
     async def remove_guild(self, guild_id: int):
         del self.cache[guild_id]
         await self.pool.execute("DELETE FROM welcome WHERE guild_id = $1", guild_id)
+
+    def from_cache(self, guild_id) -> dict:
+        return self.cache.get(guild_id)
 
 
 class EconomyNode:
