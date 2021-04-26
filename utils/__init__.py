@@ -2,15 +2,12 @@ import argparse
 import asyncio
 import logging
 import os
-import time
-from datetime import datetime
 
 import aiohttp
 import discord
 import toml
 from discord.ext import commands, menus
 
-from core import Command, CustomCooldownBucket
 from utils.context import CustomContext
 from utils.db import *
 from utils.errors import NotRegistered
@@ -118,13 +115,15 @@ class Mao(commands.Bot):
         await self.invoke(ctx)
 
     def run(self, *args, **kwargs):
-        for file in os.listdir("exts"):
-            if not file.startswith("_"):
-                try:
-                    self.load_extension(f'exts.{file[:-3]}')
-                except Exception as err:  # if we don't catch this, the bot crashes. no please
-                    logger.error(f"{file} failed to load: {err.__class__.__name__}: {err}")
-        self.load_extension("jishaku")
+        extensions = (
+            'exts.cooldowns', 'exts.economy', 'exts.error_handler', 'exts.events',
+            'exts.help', 'exts.owner', 'exts.welcome', 'jishaku'
+        )
+        for file in extensions:
+            try:
+                self.load_extension(file)
+            except Exception as err:  # if we don't catch this, the bot crashes. no please
+                logger.error(f"{file} failed to load: {err.__class__.__name__}: {err}")
         logger.info("Loaded extensions.")
         super().run(*args, **kwargs)
 

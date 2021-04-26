@@ -62,9 +62,8 @@ class CommandErrorHandler(commands.Cog):
             embed = self.bot.embed(
                 ctx,
                 description=(
-                    f"<a:countdown:827916388659363870> **{command}** is on cooldown. Try again in {retry}.\n"
-                    f"You can use this command **{cd.rate}** {ctx.plural('time(s)', cd.rate)} every **{humanize.precisedelta(cd.per)}**.\n"
-                    f"Type: {str(cd.type)}"
+                    f"**{command}** is on cooldown. Try again in {retry}.\n"
+                    f"You can use this command once every **{humanize.naturaldelta(cd.per)}**."
                 )
             )
 

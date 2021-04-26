@@ -132,15 +132,8 @@ class EconomyNode:
     async def register_user(self, ctx: CustomContext) -> bool:
         if self.cache.get(ctx.guild.id, {}).get(ctx.author.id):
             return False
-        defaults = {
-            'cash': 0,
-            'vault ': 500,
-            'pet_name': 'happy shiba',
-            'xp': 0,
-            'level': 1,
-        }
-        self.cache[ctx.guild.id][ctx.author.id] = defaults
-        await self.pool.execute("INSERT INTO users VALUES ($1, $2)", ctx.guild.id, ctx.author.id)
+        data = await self.pool.execute("INSERT INTO users VALUES ($1, $2) RETURNING *", ctx.guild.id, ctx.author.id)
+        self.cache[ctx.guild.id][ctx.author.id] = data
         return True
 
 
