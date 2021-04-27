@@ -34,3 +34,14 @@ CREATE TABLE IF NOT EXISTS welcome (
     role_id BIGINT,
     message VARCHAR NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS errors (
+    id SERIAL PRIMARY KEY,
+    error VARCHAR NOT NULL,
+    traceback VARCHAR NOT NULL,
+    occurrences BIGINT NOT NULL DEFAULT 1,
+    occurred_at TIMESTAMP NOT NULL DEFAULT timezone('UTC'::text, now()),
+    handled BOOLEAN NOT NULL DEFAULT False,
+    frame JSONB NOT NULL,
+    context JSONB[] NOT NULL
+)

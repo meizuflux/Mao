@@ -1,9 +1,10 @@
+from contextlib import suppress
+
 import discord
 from discord.ext import commands
 from humanize import naturaldelta
 
 from utils import CustomContext, Mao
-from contextlib import suppress
 
 
 class Handler:
@@ -41,9 +42,27 @@ class Handler:
             await ctx.send(message)
             return
 
+        if isinstance(error, commands.CheckFailure):
+            return await ctx.send(embed=self.bot.embed(ctx, description=str(error)))
+
         if isinstance(error, commands.NoPrivateMessage):
             with suppress(discord.HTTPException):
                 await ctx.author.send(f"{command} can only be used within a server.")
+
+        if isinstance(error, commands.MissingRequiredArgument):
+            errors = str(error).split(" ", maxsplit=1)
+            msg = (
+                f'`{errors[0]}` {errors[1]}\n'
+                f'You can view the help for this command with `{ctx.clean_prefix}help` `{command}`'
+            )
+            embed = self.bot.embed(ctx, description=msg)
+            return await ctx.send(embed=embed)
+
+        if isinstance(error, commands.DisabledCommand):
+            return await ctx.send(embed=self.bot.embed(ctx, description=f'`{command}` has been disabled.'))
+
+        if isinstance(error, commands.BadArgument):
+            return await ctx.send(embed=self.bot.embed(ctx, title=str(error)))
 
     async def handle_library_error(self, ctx: CustomContext, error: discord.DiscordException):
         if isinstance(error, commands.CommandError):

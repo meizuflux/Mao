@@ -78,24 +78,18 @@ class CommandErrorHandler(commands.Cog):
 
         if isinstance(error, commands.MissingRequiredArgument):
             errors = str(error).split(" ", maxsplit=1)
-            return await ctx.send(
-                embed=self.bot.embed(
-                    ctx,
-                    description=(
-                        f'`{errors[0]}` {errors[1]}\n'
-                        f'You can view the help for this command with `{ctx.clean_prefix}help` `{command}`'
-                    )
-                )
+            msg = (
+                f'`{errors[0]}` {errors[1]}\n'
+                f'You can view the help for this command with `{ctx.clean_prefix}help` `{command}`'
             )
+            embed = self.bot.embed(ctx, description=msg)
+            return await ctx.send(embed=embed)
 
         if isinstance(error, commands.DisabledCommand):
-            return await ctx.send(embed=self.bot.embed(ctx, description=f'`{command}` has been disabled.'))
+            return await ctx.send(embed=self.bot.embed(ctx, description=f'`{command}` has been disabled by the developers.'))
 
         if isinstance(error, commands.BadArgument):
             return await ctx.send(embed=self.bot.embed(ctx, title=str(error)))
-
-        if isinstance(error, asyncio.TimeoutError):
-            return await ctx.send(embed=self.bot.embed(ctx, description=f"{command} timed out."))
 
         formatted = traceback.format_exception(type(error), error, error.__traceback__)
 

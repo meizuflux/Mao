@@ -166,6 +166,8 @@ class Economy(commands.Cog):
             """
         )
         await self.bot.pool.execute(query, ctx.guild.id, ctx.author.id, data['xp'] - cost)
+        self.economy.cache[ctx.guild.id][ctx.author.id]['level'] += 1
+        self.economy.cache[ctx.guild.id][ctx.author.id]['xp'] = data['xp'] - cost
         await ctx.send(f"Leveled you up to level {level + 1}!")
 
     @core.command(
