@@ -1,15 +1,18 @@
 from contextlib import suppress
+from json import dumps
 
 import discord
 from discord.ext import commands
 from humanize import naturaldelta
 
+from exts.handler.serialize import Serialized
 from utils import CustomContext, Mao
 
 
 class Handler:
     def __init__(self, bot: Mao):
         self.bot = bot
+        self.pool = self.bot.pool
 
     async def handle_command_error(self, ctx: CustomContext, error: commands.CommandError):
         owner_reinvoke = (
@@ -73,3 +76,22 @@ class Handler:
     async def handle_error(self, ctx: CustomContext, error: Exception):
         if isinstance(error, discord.DiscordException):
             await self.handle_library_error(ctx, error)
+        frame = error.__traceback__
+        q = """
+            INSERT INTO errors (error, traceback, frame, context) VALUES ($1, $2, $3, $4)
+            """
+        serialized = Serialized(error, ctx).to_dict()
+        await self.pool.execute(q, serialized['error'], serialized['traceback'], serialized['frame'], [serialized['context']])
+        query = """
+                SELECT
+                    error
+                FROM 
+                    errors 
+                WHERE
+                    frame -> 'filename' = $1
+                    AND (
+                        frame -> 'function' = $2
+                        OR error = $3
+                    )
+                """
+        data = await self.pool.fetchrow(query, dumps(frame.tb_frame.f_code.co_filename), dumps(frame.tb_frame.f_code.co_name), str(error))

@@ -116,7 +116,7 @@ class Mao(commands.Bot):
 
     def run(self, *args, **kwargs):
         extensions = (
-            'exts.cooldowns', 'exts.economy', 'exts.error_handler', 'exts.events',
+            'exts.cooldowns', 'exts.economy', 'exts.events',
             'exts.help', 'exts.owner', 'exts.welcome', 'exts.handler', 'jishaku'
         )
         for file in extensions:

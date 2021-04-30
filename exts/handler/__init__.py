@@ -13,6 +13,5 @@ class ErrorTracker(commands.Cog):
     async def on_command_error(self, ctx: CustomContext, error: Exception):
         await self.handler.handle_error(ctx, error)
 
-
-def setup(bot):
-    pass
+def setup(bot: Mao):
+    bot.add_cog(ErrorTracker(bot))

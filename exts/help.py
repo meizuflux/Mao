@@ -92,6 +92,36 @@ class HelpMenu(menus.Menu):
         self.message = None
 
 
+"""
+                    The MIT License (MIT)
+
+Copyright (c) 2015-2019 Rapptz
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+
+This is Rapptz's code. I (ppotatoo) make no claim to it. I have merely modified the internals to fit my purposes.
+I needed to automate the process in which I created my help menu, and this works. I have gutted most everything, 
+and I have left the core internals mostly alone.
+"""
+
+
 class Menu:
     def __init__(self, prefix: str, mapping: dict, *, timeout=180.0, delete_message_after=False, check_embeds=False,
                  message=None):
@@ -187,7 +217,8 @@ class Menu:
         except Exception as exc:
             await self.on_menu_button_error(exc)
 
-    async def on_menu_button_error(self, exc):
+    @staticmethod
+    async def on_menu_button_error(exc):
         logging.exception("Unhandled exception during menu update.", exc_info=exc)
 
     async def start(self, ctx, *, channel=None, wait=False):
@@ -234,8 +265,7 @@ class Menu:
         embed.add_field(name="Categories", value="\n".join(f'{emoji} {name}' for emoji, name in self.buttons.items()
                                                            if emoji != '\N{BLACK SQUARE FOR STOP}'))
 
-        self.message = await channel.send(embed=embed)
-        return self.message
+        return await channel.send(embed=embed)
 
     def stop(self):
         """Stops the internal loop."""
