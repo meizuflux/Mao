@@ -57,6 +57,9 @@ class Mao(commands.Bot):
         self.registered_users: set = set()
         self._cd = commands.CooldownMapping.from_cooldown(5, 5, commands.BucketType.user)
 
+        # management stuff
+        self.encrypt_key = self.settings['misc']['encrypt_key'].encode('utf-8')
+
         #  bot management
         self.maintenance = False
         self.context = CustomContext

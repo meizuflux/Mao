@@ -5,6 +5,7 @@ import io
 import textwrap
 import traceback
 
+import asyncpg
 import discord
 import import_expression
 from discord.ext import commands
@@ -142,6 +143,14 @@ class Admin(commands.Cog):
         with Timer() as timer:
             ret = await self.pool.fetchval(query.strip('`'))
         await ctx.send(f"{codeblock(f'{ret!r}')}\n**Retrieved in {timer.ms}ms**")
+
+    @sql.error
+    async def sql_error(self, ctx: CustomContext, error: Exception):
+        if isinstance(error, commands.CommandInvokeError):
+            error = error.original
+            if isinstance(error, asyncpg.exceptions.PostgresSyntaxError):
+                return await ctx.send(embed=self.bot.embed(ctx, description=f"There was a syntax error:```\n {error} ```"))
+        await ctx.send(error)
 
 
 def setup(bot: Mao):

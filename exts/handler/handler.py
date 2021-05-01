@@ -1,3 +1,4 @@
+import traceback
 from contextlib import suppress
 from json import dumps
 
@@ -76,22 +77,53 @@ class Handler:
     async def handle_error(self, ctx: CustomContext, error: Exception):
         if isinstance(error, discord.DiscordException):
             await self.handle_library_error(ctx, error)
-        frame = error.__traceback__
+
+        error = getattr(error, 'original', error)
+        formatted = traceback.format_exception(type(error), error, error.__traceback__)
+
+        desc = (
+            f"Command: {ctx.invoked_with}\n"
+            f"Full content: {ctx.message.content}\n"
+            f"Guild: {ctx.guild.name} ({ctx.guild.id})\n"
+            f"Channel: {ctx.channel.name} ({ctx.channel.id})\n"
+            f"User: {ctx.author.name} ({ctx.author.id})\n"
+            f"Jump URL: {ctx.message.jump_url}"
+        )
+        embed = self.bot.embed(ctx, title='AN ERROR OCCURED', description=desc)
+        await self.bot.error_webhook.send(f"```py\n" + ''.join(formatted) + f"```", embed=embed)
+
+        await ctx.send(
+            f"Oops, an error occured. Sorry about that."
+            f"```py\n{''.join(formatted)}\n```"
+        )
+
+        current = error.__traceback__
+
+        while current.tb_next is not None:
+            current = current.tb_next
         q = """
-            INSERT INTO errors (error, traceback, frame, context) VALUES ($1, $2, $3, $4)
+            INSERT INTO 
+                errors (error, traceback, frames, filename, function, context)
+            SELECT 
+                x.error, x.traceback, x.frames, x.filename, x.function, x.context
+            FROM jsonb_to_record($1) AS
+                x(error VARCHAR, traceback VARCHAR, frames JSONB, filename VARCHAR, function VARCHAR, context JSONB[])
             """
+
         serialized = Serialized(error, ctx).to_dict()
-        await self.pool.execute(q, serialized['error'], serialized['traceback'], serialized['frame'], [serialized['context']])
+        await self.pool.execute(q, dumps(serialized))
+
         query = """
                 SELECT
                     error
                 FROM 
                     errors 
                 WHERE
-                    frame -> 'filename' = $1
+                    filename = $1
                     AND (
-                        frame -> 'function' = $2
+                        function = $2
                         OR error = $3
                     )
                 """
-        data = await self.pool.fetchrow(query, dumps(frame.tb_frame.f_code.co_filename), dumps(frame.tb_frame.f_code.co_name), str(error))
+        data = await self.pool.fetchrow(query, current.tb_frame.f_code.co_filename, current.tb_frame.f_code.co_name, str(error))
+        await ctx.send(await ctx.mystbin(str(data)))
