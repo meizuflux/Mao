@@ -3,7 +3,9 @@ from dataclasses import dataclass
 from discord.ext import commands
 
 
-class Command(commands.Command):
+
+
+class CommandMixin:
     def __init__(self, func, name, **attrs):
         super().__init__(func, name=name, **attrs)
         self.examples: tuple = attrs.pop("examples", (None,))
@@ -11,14 +13,11 @@ class Command(commands.Command):
         self.bot_perms: tuple = attrs.pop("bot_perms", ('Send Messages',))
         self.cd: Cooldown = attrs.pop("cd", None)
 
+class Command(CommandMixin, commands.Command):
+    pass
 
 class Group(Command, commands.Group):
-    def __init__(self, func, name, **attrs):
-        super().__init__(func, name=name, **attrs)
-        self.examples: tuple = attrs.pop("examples", (None,))
-        self.user_perms: tuple = attrs.pop("user_perms", ("None",))
-        self.bot_perms: tuple = attrs.pop("bot_perms", ('Send Messages',))
-        self.cd: Cooldown = attrs.pop("cd", None)
+    pass
 
 
 def command(name=None, cls=None, **attrs):

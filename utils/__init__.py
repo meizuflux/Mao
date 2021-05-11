@@ -34,7 +34,7 @@ class Mao(commands.Bot):
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()
 
         #  core variables
-        with open("config.toml") as f:
+        with open("D:/coding/Mao/" + "/config.toml") as f:
             self.settings: dict = toml.loads(f.read())
         self.embed_color = 0xffc38f
 
@@ -73,7 +73,7 @@ class Mao(commands.Bot):
         )
 
         async with self.pool.acquire() as conn:
-            with open("schema.sql") as f:
+            with open("D:/coding/Mao/" + "schema.sql") as f:
                 await conn.execute(f.read())
 
             users = await conn.fetch("SELECT user_id FROM users")
@@ -119,7 +119,7 @@ class Mao(commands.Bot):
 
     def run(self, *args, **kwargs):
         extensions = (
-            'exts.cooldowns', 'exts.economy', 'exts.events',
+            'exts.cooldowns', 'exts.economy', 'exts.events', 'exts.tags',
             'exts.help', 'exts.owner', 'exts.welcome', 'exts.handler', 'jishaku'
         )
         for file in extensions:

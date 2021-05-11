@@ -152,6 +152,18 @@ class Admin(commands.Cog):
                 return await ctx.send(embed=self.bot.embed(ctx, description=f"There was a syntax error:```\n {error} ```"))
         await ctx.send(error)
 
+    @fetch.error
+    async def fetch_error(self, ctx, error):
+        await self.sql_error(ctx, error)
+
+    @fetchval.error
+    async def fetchval_error(self, ctx, error):
+        await self.sql_error(ctx, error)
+
+    @execute.error
+    async def exec_error(self, ctx, error):
+        await self.sql_error(ctx, error)
+
 
 def setup(bot: Mao):
     bot.add_cog(Admin(bot))

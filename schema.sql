@@ -35,15 +35,23 @@ CREATE TABLE IF NOT EXISTS welcome (
     message VARCHAR NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS errors (
+CREATE TABLE IF NOT EXISTS tags (
+    tag_id SERIAL UNIQUE,
+    guild_id BIGINT REFERENCES guilds (guild_id) ON DELETE CASCADE,
+    owner_id BIGINT,
+    created_at TIMESTAMP DEFAULT timezone('UTC'::text, now()),
+    uses BIGINT DEFAULT 0,
+    name VARCHAR(256),
+    content VARCHAR(1500),
+    PRIMARY KEY (guild_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS tag_search (
     id SERIAL PRIMARY KEY,
-    error VARCHAR NOT NULL,
-    traceback VARCHAR NOT NULL,
-    filename VARCHAR NOT NULL,
-    function VARCHAR NOT NULL,
-    occurrences BIGINT NOT NULL DEFAULT 1,
-    occurred_at TIMESTAMP NOT NULL DEFAULT timezone('UTC'::text, now()),
-    handled BOOLEAN NOT NULL DEFAULT False,
-    frames JSONB NOT NULL,
-    context JSONB[] NOT NULL
+    tag_id BIGINT REFERENCES tags (tag_id) ON DELETE CASCADE,
+    guild_id BIGINT,
+    owner_id BIGINT,
+    created_at TIMESTAMP DEFAULT timezone('UTC'::text, now()),
+    name VARCHAR(256)
 )
+

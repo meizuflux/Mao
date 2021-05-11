@@ -270,6 +270,11 @@ class MaoHelp(commands.HelpCommand):
 
         return iterator
 
+
+    async def on_help_command_error(self, ctx, error):
+        print(error)
+        return await super().on_help_command_error(ctx, error)
+
     async def send_error_message(self, error):
         bot = self.context.bot
         destination = self.get_destination()
@@ -334,22 +339,25 @@ class MaoHelp(commands.HelpCommand):
             inline=False
         )
         if isinstance(command, (core.Command, core.Group)):
-            embed.add_field(
-                name="Permissions",
-                value=(
-                    f"Permissions **you** need: `{'`, `'.join(command.user_perms)}`\n"
-                    f"Permissions **I** need: `{'`, `'.join(command.bot_perms)}`\n"
-                )
-            )
-
-            if examples := command.examples:
+            try:
                 embed.add_field(
-                    name="Examples",
-                    value="\n".join(
-                        f'`{self.clean_prefix}{command.qualified_name}` `{example}`' if example else f'`{self.clean_prefix}{command.qualified_name}`'
-                        for example in examples
+                    name="Permissions",
+                    value=(
+                        f"Permissions **you** need: `{'`, `'.join(command.user_perms)}`\n"
+                        f"Permissions **I** need: `{'`, `'.join(command.bot_perms)}`\n"
                     )
                 )
+
+                if examples := command.examples:
+                    embed.add_field(
+                        name="Examples",
+                        value="\n".join(
+                            f'`{self.clean_prefix}{command.qualified_name}` `{example}`' if example else f'`{self.clean_prefix}{command.qualified_name}`'
+                            for example in examples
+                        )
+                    )
+            except Exception as e:
+                print(e)
 
         destination = self.get_destination()
         await destination.send(embed=embed)

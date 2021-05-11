@@ -6,7 +6,6 @@ import discord
 from discord.ext import commands
 from humanize import naturaldelta
 
-from exts.handler.serialize import Serialized
 from utils import CustomContext, Mao
 
 
@@ -27,15 +26,19 @@ class Handler:
             await ctx.reinvoke()
             return
 
-        if ctx.command.has_error_handler():
-            return
+        command = None
 
-        cog: commands.Cog = ctx.cog
-        if cog and cog.has_error_handler():
-            return
+        if ctx.command:
+            if ctx.command.has_error_handler():
+                return
+
+            cog: commands.Cog = ctx.cog
+            if cog and cog.has_error_handler():
+                return
+
+            command = ctx.command.qualified_name
 
         error = getattr(error, 'original', error)
-        command = ctx.command.qualified_name
 
         if isinstance(error, commands.CommandOnCooldown):
             retry = naturaldelta(error.retry_after)
@@ -57,7 +60,7 @@ class Handler:
             errors = str(error).split(" ", maxsplit=1)
             msg = (
                 f'`{errors[0]}` {errors[1]}\n'
-                f'You can view the help for this command with `{ctx.clean_prefix}help` `{command}`'
+                f'You can view the help for this command with `{ctx.prefix}help` `{command}`'
             )
             embed = self.bot.embed(ctx, description=msg)
             return await ctx.send(embed=embed)
@@ -77,53 +80,32 @@ class Handler:
     async def handle_error(self, ctx: CustomContext, error: Exception):
         if isinstance(error, discord.DiscordException):
             await self.handle_library_error(ctx, error)
+        else:
+            if ctx.command:
+                if ctx.command.has_error_handler():
+                    return
 
-        error = getattr(error, 'original', error)
-        formatted = traceback.format_exception(type(error), error, error.__traceback__)
+                cog: commands.Cog = ctx.cog
+                if cog and cog.has_error_handler():
+                    return
 
-        desc = (
-            f"Command: {ctx.invoked_with}\n"
-            f"Full content: {ctx.message.content}\n"
-            f"Guild: {ctx.guild.name} ({ctx.guild.id})\n"
-            f"Channel: {ctx.channel.name} ({ctx.channel.id})\n"
-            f"User: {ctx.author.name} ({ctx.author.id})\n"
-            f"Jump URL: {ctx.message.jump_url}"
-        )
-        embed = self.bot.embed(ctx, title='AN ERROR OCCURED', description=desc)
-        await self.bot.error_webhook.send(f"```py\n" + ''.join(formatted) + f"```", embed=embed)
+            error = getattr(error, 'original', error)
+            formatted = traceback.format_exception(type(error), error, error.__traceback__)
 
-        await ctx.send(
-            f"Oops, an error occured. Sorry about that."
-            f"```py\n{''.join(formatted)}\n```"
-        )
+            desc = (
+                f"Command: {ctx.invoked_with}\n"
+                f"Full content: {ctx.message.content}\n"
+                f"Guild: {ctx.guild.name} ({ctx.guild.id})\n"
+                f"Channel: {ctx.channel.name} ({ctx.channel.id})\n"
+                f"User: {ctx.author.name} ({ctx.author.id})\n"
+                f"Jump URL: {ctx.message.jump_url}"
+            )
+            embed = self.bot.embed(ctx, title='AN ERROR OCCURRED', description=desc)
+            await self.bot.error_webhook.send(f"```py\n" + ''.join(formatted) + f"```", embed=embed)
 
-        current = error.__traceback__
+            await ctx.send(
+                f"Oops, an error occured. Sorry about that."
+                f"```py\n{''.join(formatted)}\n```"
+            )
 
-        while current.tb_next is not None:
-            current = current.tb_next
-        q = """
-            INSERT INTO 
-                errors (error, traceback, frames, filename, function, context)
-            SELECT 
-                x.error, x.traceback, x.frames, x.filename, x.function, x.context
-            FROM jsonb_to_record($1) AS
-                x(error VARCHAR, traceback VARCHAR, frames JSONB, filename VARCHAR, function VARCHAR, context JSONB[])
-            """
 
-        serialized = Serialized(error, ctx).to_dict()
-        await self.pool.execute(q, dumps(serialized))
-
-        query = """
-                SELECT
-                    error
-                FROM 
-                    errors 
-                WHERE
-                    filename = $1
-                    AND (
-                        function = $2
-                        OR error = $3
-                    )
-                """
-        data = await self.pool.fetchrow(query, current.tb_frame.f_code.co_filename, current.tb_frame.f_code.co_name, str(error))
-        await ctx.send(await ctx.mystbin(str(data)))
