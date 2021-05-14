@@ -338,7 +338,7 @@ class MaoHelp(commands.HelpCommand):
             value=get_sig(command, self.clean_prefix),
             inline=False
         )
-        if isinstance(command, (core.Command, core.Group)):
+        if isinstance(command, core.Command):
             try:
                 embed.add_field(
                     name="Permissions",
@@ -368,4 +368,4 @@ def setup(bot: Mao):
 
 
 def teardown(bot: Mao):
-    bot.help_command = commands.HelpCommand()
+    bot.help_command = commands.MinimalHelpCommand()
