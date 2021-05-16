@@ -128,15 +128,7 @@ class Manager(asyncpg.Pool):
                     item = dict(item)
                     if table == 'guild_config':
                         cache[item.pop('guild_id')]['guild_config'] = item
-
         return cache
-
-    def route(self, ctx, *directions):
-        ret = self.cache[ctx.guild.id]
-        for place in directions:
-            ret = ret.get(place, {})
-
-        return ret or None
 
     async def set_cooldown(self, ctx: CustomContext, epoch: float, guild: bool):
         command = ctx.command.qualified_name
