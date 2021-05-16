@@ -14,7 +14,7 @@ from utils.errors import NotRegistered
 from utils.timer import Timer
 
 try:
-    import uvloop
+    import uvloop # just a faster event loop
 except ImportError:
     pass  # we're on windows
 else:
@@ -40,9 +40,11 @@ class Mao(commands.Bot):
 
         #   asyncio things
         self.loop = asyncio.get_event_loop()
+        self._prepped = asyncio.Event()
         self.pool: Manager = self.loop.run_until_complete(
             create_pool(bot=self, dsn=self.settings['core']['postgres_dsn'], loop=self.loop)
         )
+        
         self.loop.create_task(self.__prep())
 
         #  cache
@@ -65,17 +67,15 @@ class Mao(commands.Bot):
         self.context = CustomContext
 
     async def __prep(self):
-        await self.wait_until_ready()
         self.session: aiohttp.ClientSession = aiohttp.ClientSession(loop=self.loop)
         self.error_webhook = discord.Webhook.from_url(
             self.settings["core"]["error_webhook"],
             adapter=discord.AsyncWebhookAdapter(self.session)
-        )
-
+        )       
         async with self.pool.acquire() as conn:
             with open("D:/coding/Mao/" + "schema.sql") as f:
-                await conn.execute(f.read())
-
+                    await conn.execute(f.read())
+            await self.wait_until_ready()
             users = await conn.fetch("SELECT user_id FROM users")
             self.cache['registered_users'] = {user["user_id"] for user in users}
 
@@ -95,7 +95,7 @@ class Mao(commands.Bot):
                     self.cache['guilds']['non_leveling'].add(g['guild_id'])
                 if g['welcoming']:
                     self.cache['guilds']['welcoming'].add(g['guild_id'])
-
+            self._prepped.set()
             logger.info("Finished prep")
 
     async def on_ready(self):

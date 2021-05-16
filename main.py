@@ -10,6 +10,7 @@ from utils import Mao
 
 intents = discord.Intents.default()
 intents.members = True
+
 intents.integrations = False
 intents.webhooks = False
 intents.invites = False
@@ -38,9 +39,13 @@ async def ratelimit(ctx):
         _type = 'guild' if ctx.command.cd.guild else 'user'
         try:
             if _type == 'guild':
+                if not ctx.guild:
+                    raise commands.NoPrivateMessage()
                 expires = bot.pool.cache['cooldowns'][_type][ctx.guild.id][ctx.author.id][ctx.command.qualified_name]
+
             elif _type == 'user':
                 expires = bot.pool.cache['cooldowns'][_type][ctx.author.id][ctx.command.qualified_name]
+
             if expires > time.time():
                 raise commands.CommandOnCooldown(
                     CustomCooldownBucket(rate=1, per=ctx.command.cd.rate, type=_type),
